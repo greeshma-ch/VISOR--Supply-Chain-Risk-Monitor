@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, Building2, UserCircle, Key, Globe, ChevronDown } from 'lucide-react';
+import { ArrowRight, Building2, UserCircle, Key, Globe, ChevronDown } from 'lucide-react';
+import Logo from '../components/Logo';
 import { User, Role } from '../types';
 
 interface AuthViewProps {
@@ -13,6 +14,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
   const [role, setRole] = useState<Role>('Analyst');
   const [selectedSector, setSelectedSector] = useState<string>('Logistics');
   const [hqLocation, setHqLocation] = useState('USA, San Francisco');
+  const [error, setError] = useState<string | null>(null);
 
   const sectors = [
     'Logistics',
@@ -23,22 +25,57 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
     'Pharmaceuticals',
   ];
 
+  const validateAccessKey = (key: string) => {
+    // Requirements: At least 12 chars, one uppercase, one number
+    const hasLength = key.length >= 12;
+    const hasUpper = /[A-Z]/.test(key);
+    const hasNumber = /[0-9]/.test(key);
+    return hasLength && hasUpper && hasNumber;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (company.trim() && accessKey.trim()) {
-      onComplete({ company, accessKey, role, sectors: [selectedSector], hqLocation });
+    setError(null);
+
+    if (!company.trim() || !accessKey.trim()) {
+      setError("Strategic parameters incomplete. All fields required.");
+      return;
     }
+
+    if (!validateAccessKey(accessKey)) {
+      setError("Protocol mismatch. Access Key must be 12+ characters with at least one uppercase letter and one number.");
+      return;
+    }
+
+    // Company Key Consistency Check
+    const storedKeys = JSON.parse(localStorage.getItem('vs_company_registry') || '{}');
+    const sanitizedCompany = company.trim().toLowerCase();
+
+    if (storedKeys[sanitizedCompany] && storedKeys[sanitizedCompany] !== accessKey) {
+      setError("Authorization denied. Historical key mismatch for this enterprise domain.");
+      return;
+    }
+
+    // Register company if new
+    if (!storedKeys[sanitizedCompany]) {
+      storedKeys[sanitizedCompany] = accessKey;
+      localStorage.setItem('vs_company_registry', JSON.stringify(storedKeys));
+    }
+
+    onComplete({ company, accessKey, role, sectors: [selectedSector], hqLocation });
   };
 
   return (
     <div className="min-h-screen bg-[#070b14] flex items-center justify-center p-2 sm:p-4">
       <div className="w-full max-w-md bg-[#0a0f1c] rounded-[2rem] shadow-2xl border border-white/5 overflow-hidden animate-in zoom-in-95 duration-500 my-4">
         <div className="p-6 sm:p-8 text-center bg-blue-600/5 border-b border-white/5">
-          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 rounded-xl mb-3 shadow-[0_0_40px_rgba(37,99,235,0.4)]">
-            <ShieldCheck className="text-white" size={24} />
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tighter uppercase">ChainGuard</h1>
+          <Logo className="justify-center mb-1" />
           <p className="text-blue-500/60 mt-1 text-[10px] font-bold uppercase tracking-[0.3em]">Enterprise Intelligence Protocol</p>
+          {error && (
+            <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
+              <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">{error}</p>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-4 sm:space-y-5">

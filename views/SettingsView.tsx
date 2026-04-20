@@ -198,7 +198,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onNavigate }) => {
           </div>
           <div className="flex-1 space-y-6">
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-medium">
-              Sync ChainGuard intelligence directly with SAP, Oracle, or Microsoft Dynamics 365 environments for automated procurement workflows.
+              Sync VISOR intelligence directly with SAP, Oracle, or Microsoft Dynamics 365 environments for automated procurement workflows.
             </p>
             <div className="grid grid-cols-2 gap-3">
               {['SAP S/4HANA', 'Oracle Cloud', 'MS Dynamics', 'NetSuite'].map(erp => (
@@ -233,7 +233,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onNavigate }) => {
             <div className="bg-rose-500/5 border border-rose-500/20 p-4 sm:p-6 rounded-[2rem] sm:rounded-3xl flex gap-4 mb-8">
               <AlertCircle className="text-rose-400 flex-shrink-0" size={28} />
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-                ChainGuard Protocol 2.5 active. Data for <span className="text-white font-bold">{user.company}</span> is currently strictly isolated from public nodes.
+                VISOR Protocol 2.5 active. Data for <span className="text-white font-bold">{user.company}</span> is currently strictly isolated from public nodes.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

@@ -8,10 +8,8 @@ import {
   Map as MapIcon, 
   Bell, 
   Settings, 
-  ShieldCheck, 
   LogOut,
   ChevronRight,
-  ChevronLeft,
   Menu,
   X,
   Layers,
@@ -20,6 +18,7 @@ import {
   BookOpen,
   Building2
 } from 'lucide-react';
+import Logo from './Logo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -72,12 +71,7 @@ const Layout: React.FC<LayoutProps> = ({
         ${isCollapsed ? 'w-20' : 'w-72'}
       `}>
         <div className={`flex items-center border-b border-white/5 h-20 shrink-0 transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'justify-between p-6'}`}>
-          <div className={`flex items-center gap-3 overflow-hidden ${isCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(37,99,235,0.4)]">
-              <ShieldCheck className="text-white" size={24} />
-            </div>
-            {!isCollapsed && <span className="font-bold text-xl tracking-tight text-white whitespace-nowrap">ChainGuard</span>}
-          </div>
+          <Logo collapsed={isCollapsed} />
         </div>
 
         <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
@@ -166,8 +160,9 @@ const Layout: React.FC<LayoutProps> = ({
             </button>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-slate-500 text-[10px] sm:text-xs font-black uppercase tracking-widest">Network</span>
-              <ChevronRight size={14} className="text-slate-700" />
+              <Logo collapsed={true} className="mr-4 lg:hidden scale-75" />
+              <span className="text-slate-500 text-[10px] sm:text-xs font-black uppercase tracking-widest hidden sm:block">Network</span>
+              <ChevronRight size={14} className="text-slate-700 hidden sm:block" />
               <span className="text-blue-400 font-black text-xs sm:text-sm uppercase tracking-widest truncate max-w-[120px] sm:max-w-none">
                 {activeView === 'MAP' ? 'Map' : activeView.replace('_', ' ')}
               </span>

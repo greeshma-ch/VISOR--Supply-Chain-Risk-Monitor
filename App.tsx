@@ -20,7 +20,7 @@ import { Toaster, toast } from 'sonner';
 const App: React.FC = () => {
   const [view, setView] = useState<View>('DASHBOARD');
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('cg_session');
+    const saved = localStorage.getItem('vs_session');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (!parsed.sectors) parsed.sectors = ['Logistics'];
@@ -33,7 +33,7 @@ const App: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<RiskStatus | 'ALL'>('ALL');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    const saved = localStorage.getItem('cg_suppliers');
+    const saved = localStorage.getItem('vs_suppliers');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -45,7 +45,7 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    localStorage.setItem('cg_suppliers', JSON.stringify(suppliers));
+    localStorage.setItem('vs_suppliers', JSON.stringify(suppliers));
   }, [suppliers]);
   const [simulatedRiskyNodes, setSimulatedRiskyNodes] = useState<string[]>([]);
   
@@ -99,11 +99,16 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isInitialMount.current) {
+    if (user && isInitialMount.current) {
       refreshDisruptions();
       isInitialMount.current = false;
     }
     
+    // Immediate resync on view change or user initialization if not already done
+    if (user && !isRefreshing && disruptions.length === MOCK_DISRUPTIONS.length) {
+       refreshDisruptions();
+    }
+
     // Dynamic refresh frequency based on tier
     const getRefreshInterval = () => {
       switch (user?.plan) {
@@ -116,23 +121,23 @@ const App: React.FC = () => {
 
     const interval = setInterval(refreshDisruptions, getRefreshInterval());
     return () => clearInterval(interval);
-  }, [suppliers.length, user?.plan]);
+  }, [suppliers.length, user?.plan, user]);
 
   const handleAuthComplete = (userData: User) => {
     setUser(userData);
-    localStorage.setItem('cg_session', JSON.stringify(userData));
+    localStorage.setItem('vs_session', JSON.stringify(userData));
   };
 
   const updateSectors = (newSectors: string[]) => {
     if (user) {
       const updatedUser = { ...user, sectors: newSectors };
       setUser(updatedUser);
-      localStorage.setItem('cg_session', JSON.stringify(updatedUser));
+      localStorage.setItem('vs_session', JSON.stringify(updatedUser));
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('cg_session');
+    localStorage.removeItem('vs_session');
     setUser(null);
   };
 
@@ -246,7 +251,7 @@ const App: React.FC = () => {
                 if (user) {
                   const updatedUser = { ...user, plan: 'Basic' };
                   setUser(updatedUser);
-                  localStorage.setItem('cg_session', JSON.stringify(updatedUser));
+                  localStorage.setItem('vs_session', JSON.stringify(updatedUser));
                   toast.success("Basic Plan Activated", {
                     description: "Your network has been provisioned with Basic Tier capabilities."
                   });
@@ -279,7 +284,7 @@ const App: React.FC = () => {
               if (user) {
                 const updatedUser = { ...user, plan: planName };
                 setUser(updatedUser);
-                localStorage.setItem('cg_session', JSON.stringify(updatedUser));
+                localStorage.setItem('vs_session', JSON.stringify(updatedUser));
                 toast.success(`${planName} Plan Activated`, {
                   description: `Your enterprise handshake for ${planName} tier is complete.`
                 });

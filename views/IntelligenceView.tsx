@@ -102,7 +102,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
         <div className="max-w-xs sm:max-w-sm">
           <h3 className="text-lg sm:text-xl font-bold text-white">Synthesizing Signals...</h3>
           <p className="text-slate-500 text-xs sm:text-sm mt-2">
-            ChainGuard AI is processing news and weather vectors for <b>{supplier.name}</b>.
+            VISOR AI is processing news and weather vectors for <b>{supplier.name}</b>.
           </p>
         </div>
       </div>

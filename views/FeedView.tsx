@@ -73,7 +73,7 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
       });
       return;
     }
-    toast.info("Establishing encrypted handshake with ChainGuard Archival Vault... Accessing historical logistics metadata (2018-2023).");
+    toast.info("Establishing encrypted handshake with VISOR Archival Vault... Accessing historical logistics metadata (2018-2023).");
   };
 
   return (

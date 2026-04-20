@@ -57,7 +57,7 @@ const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onBack, onNav
   ];
 
   const handleContactLead = () => {
-    toast.info("Establishing encrypted communication line with ChainGuard Protocol Lead...", {
+    toast.info("Establishing encrypted communication line with VISOR Protocol Lead...", {
       description: "Protocol Lead: Marcus Thorne (Sovereign Ops). Status: Awaiting handshake."
     });
   };

@@ -70,7 +70,7 @@ const PaymentView: React.FC<PaymentViewProps> = ({ onBack, onPaymentSuccess, sel
         <div className="bg-[#0a0f1c] p-6 rounded-3xl border border-white/5 text-left space-y-4">
           <div className="flex justify-between text-xs">
             <span className="text-slate-500 font-bold uppercase">Transaction ID</span>
-            <span className="text-white font-mono">CG-AXB-921-001</span>
+            <span className="text-white font-mono">VS-AXB-921-001</span>
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-slate-500 font-bold uppercase">Status</span>
@@ -184,7 +184,7 @@ const PaymentView: React.FC<PaymentViewProps> = ({ onBack, onPaymentSuccess, sel
               <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                  <ShieldCheck className="text-blue-400" size={20} /> Security Summary
               </h3>
-              <p className="text-xs text-slate-400 leading-relaxed">Your payment data is encrypted with AES-256 and processed through our sovereign financial nodes. ChainGuard does not store plain-text card metadata.</p>
+              <p className="text-xs text-slate-400 leading-relaxed">Your payment data is encrypted with AES-256 and processed through our sovereign financial nodes. VISOR does not store plain-text card metadata.</p>
               <div className="pt-4 flex flex-wrap gap-3">
                  <div className="px-2 py-1 bg-white/5 rounded text-[8px] font-black text-slate-500 uppercase tracking-widest border border-white/5">PCI-DSS Level 1</div>
                  <div className="px-2 py-1 bg-white/5 rounded text-[8px] font-black text-slate-500 uppercase tracking-widest border border-white/5">SSL Secure</div>
