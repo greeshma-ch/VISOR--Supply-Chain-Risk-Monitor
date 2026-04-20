@@ -53,29 +53,27 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
     setLoading(true);
     setError(null);
     try {
-      // Fetch weather first
-      const weatherData = await fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
+      // Parallelize weather and intelligence fetching for speed
+      const weatherPromise = fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
+      
+      const [weatherData] = await Promise.all([weatherPromise]);
       setWeather(weatherData);
 
-      // Fetch intelligence
-      const intelData = await generateSupplierIntelligence(supplier, weatherData, !!isSimulated);
-      setBrief(intelData);
+      const intelPromise = generateSupplierIntelligence(supplier, weatherData, !!isSimulated);
+      const impactPromise = generateImpactAnalysis(supplier, !!isSimulated);
 
-      // Fetch impact analysis
       setImpactLoading(true);
       setImpactError(false);
-      try {
-        const impactData = await generateImpactAnalysis(supplier, !!isSimulated);
-        setImpactAnalysis(impactData);
-      } catch (err) {
-        setImpactError(true);
-      } finally {
-        setImpactLoading(false);
-      }
+
+      const [intelData, impactData] = await Promise.all([intelPromise, impactPromise]);
+      
+      setBrief(intelData);
+      setImpactAnalysis(impactData);
     } catch (err) {
       setError("Failed to generate intelligence brief. Check your API key and network connection.");
     } finally {
       setLoading(false);
+      setImpactLoading(false);
     }
   };
 
@@ -141,7 +139,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
             <h2 className="text-2xl sm:text-3xl font-bold text-white truncate max-w-[200px] sm:max-w-none">{supplier.name}</h2>
             {(user.plan === 'Business' || user.plan === 'Intermediate') && (
               <p className="text-[10px] font-medium text-slate-500 mt-0.5 flex items-center gap-1.5">
-                <Mail size={12} className="text-slate-600" /> {supplier.contactEmail}
+                <Mail size={12} className="text-slate-600" /> {supplier.contactEmail || 'No contact provided'}
               </p>
             )}
           </div>

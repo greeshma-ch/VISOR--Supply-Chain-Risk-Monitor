@@ -1,8 +1,8 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
 import path from "path";
+import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -12,17 +12,24 @@ async function startServer() {
 
   app.use(express.json());
 
+  // API Route for health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // API Route for weather alerts
   app.post("/api/weather/alerts", async (req, res) => {
-    const { locations } = req.body; // Array of { lat, lon, name }
+    console.log("Incoming weather alerts request for", req.body?.locations?.length, "locations");
+    const { locations } = req.body; 
     const apiKey = process.env.OPENWEATHER_API_KEY;
 
     if (!apiKey) {
-      console.warn("OPENWEATHER_API_KEY is missing");
-      return res.status(200).json([]); // Return empty array if not configured to avoid crashing frontend
+      console.warn("OPENWEATHER_API_KEY is missing, returning empty alerts");
+      return res.status(200).json([]); 
     }
 
     try {
+      console.log(`Fetching weather alerts for: ${locations.map((l: any) => l.name).join(', ')}`);
       const alerts = await Promise.all(
         locations.map(async (loc: any) => {
           try {

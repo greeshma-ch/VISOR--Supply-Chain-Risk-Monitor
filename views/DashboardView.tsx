@@ -23,6 +23,9 @@ interface DashboardViewProps {
   onNavigateToFeed: () => void;
   onNavigateToResource: (title: string) => void;
   disruptions: Disruption[];
+  suppliers: Supplier[];
+  isRefreshing?: boolean;
+  onResync?: () => void;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ 
@@ -33,11 +36,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToRegistry,
   onNavigateToFeed,
   onNavigateToResource,
-  disruptions
+  disruptions,
+  suppliers,
+  isRefreshing,
+  onResync
 }) => {
-  const channelSuppliers = MOCK_SUPPLIERS.filter(s => {
+  const channelSuppliers = suppliers.filter(s => {
     return categoryFilter === 'ALL' || s.category === categoryFilter;
   });
+
+  const getRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffInMs = now.getTime() - then.getTime();
+    const diffInMins = Math.floor(diffInMs / (1000 * 60));
+    
+    if (diffInMins < 1) return 'Just now';
+    if (diffInMins < 60) return `${diffInMins}m ago`;
+    
+    const diffInHours = Math.floor(diffInMins / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    return then.toLocaleDateString();
+  };
 
   const getCountByStatus = (status: RiskStatus) => channelSuppliers.filter(s => s.status === status).length;
 
@@ -62,12 +83,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     { id: RiskStatus.STABLE, label: 'Operational Sync', value: stableCount, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', status: RiskStatus.STABLE },
   ];
 
+  const activeRegions = Array.from(new Set(channelSuppliers.map(s => s.location)));
+
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-[#0a0f1c] p-3 border border-white/10 shadow-xl rounded-xl">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{payload[0].name}</p>
-          <p className="text-sm font-bold text-white">{payload[0].value} Suppliers ({payload[0].payload.percentage}%)</p>
+        <div className="bg-[#0a0f1c]/90 backdrop-blur-xl p-4 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl animate-in fade-in zoom-in-95 duration-200 pointer-events-none z-50 min-w-[160px]">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.2)]" style={{ backgroundColor: payload[0].payload.color.length > 7 ? payload[0].payload.color.slice(0, 7) : payload[0].payload.color }} />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{payload[0].name}</p>
+          </div>
+          <p className="text-sm font-black text-white tracking-tight">
+            {payload[0].value} <span className="text-slate-500 font-bold">Nodes</span>
+          </p>
+          <div className="mt-2 pt-2 border-t border-white/5">
+            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{payload[0].payload.percentage}% of Network</p>
+          </div>
         </div>
       );
     }
@@ -88,16 +119,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
         <div>
           <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">Executive Intelligence</h2>
-          <p className="text-slate-500 mt-2 font-medium flex flex-wrap items-center gap-2 text-xs sm:text-sm uppercase tracking-widest">
-            <Clock size={16} className="text-blue-500" /> {getSyncFrequency()} Sync • completed {new Date().toLocaleTimeString()} • <span className="text-slate-200 font-bold">{categoryFilter}</span> Channel
-          </p>
+          <div className="flex items-center gap-3 mt-2">
+            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-widest ${isRefreshing ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
+              <Activity size={10} className={isRefreshing ? 'animate-pulse' : ''} />
+              {isRefreshing ? 'Telemetry Syncing' : 'Global Sync: Active'}
+            </div>
+            <p className="text-slate-500 font-medium flex items-center gap-2 text-xs uppercase tracking-widest">
+              <Clock size={14} className="text-slate-600" /> {getSyncFrequency()} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="text-slate-400 font-black">{categoryFilter}</span> Channel
+            </p>
+          </div>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
           <button className="flex-1 sm:flex-none px-6 py-3 bg-white/5 border border-white/10 text-slate-300 font-black rounded-xl hover:bg-white/10 transition-all text-[10px] uppercase tracking-widest">
             Export
           </button>
-          <button className="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest">
-            Resync <TrendingUp size={16} />
+          <button 
+            onClick={onResync}
+            disabled={isRefreshing}
+            className="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRefreshing ? 'Syncing...' : 'Resync'} <TrendingUp size={16} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
@@ -159,11 +200,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} className="outline-none" />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip 
+                  content={<CustomTooltip />} 
+                  offset={20}
+                  wrapperStyle={{ outline: 'none', zIndex: 100 }}
+                />
               </PieChart>
             </ResponsiveContainer>
             
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center mt-6 sm:mt-8">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
               <p className="text-4xl sm:text-6xl font-black text-white tracking-tighter">
                 {statusFilter === 'ALL' ? totalCount : channelSuppliers.filter(s => s.status === statusFilter).length}
               </p>
@@ -192,7 +237,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         <div className="bg-[#080c18] p-6 sm:p-10 rounded-[2.5rem] border border-white/5 shadow-sm overflow-hidden flex flex-col min-h-[500px] sm:min-h-[600px]">
           <div className="flex justify-between items-center mb-8 sm:mb-10">
-            <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Risk Signals</h3>
+            <div>
+              <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Risk Signals</h3>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Live: Node-Synced</span>
+              </div>
+            </div>
             <button 
               onClick={onNavigateToFeed}
               className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all group"
@@ -201,24 +252,57 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
           <div className="space-y-4 sm:space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            {disruptions.filter(d => categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather').map((d) => (
-              <button 
-                key={d.id} 
-                onClick={() => onNavigateToResource(d.title)}
-                className="w-full text-left p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
-                    d.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    {d.severity} Priority
-                  </span>
-                  <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{d.type}</span>
+            {isRefreshing ? (
+              <div className="space-y-4 animate-pulse">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="w-full p-6 rounded-[2rem] bg-white/[0.02] border border-white/5">
+                    <div className="flex justify-between mb-3">
+                      <div className="h-2 w-16 bg-white/10 rounded" />
+                      <div className="h-2 w-12 bg-white/10 rounded" />
+                    </div>
+                    <div className="h-4 w-3/4 bg-white/10 rounded mb-2" />
+                    <div className="h-3 w-full bg-white/10 rounded" />
+                  </div>
+                ))}
+                <div className="text-center py-4">
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest animate-bounce">Syncing Real-time Feed...</p>
                 </div>
-                <h4 className="font-black text-white text-sm sm:text-base leading-tight mb-2 truncate group-hover:text-blue-400 transition-colors">{d.title}</h4>
-                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed font-medium">{d.summary}</p>
-              </button>
-            ))}
+              </div>
+            ) : disruptions.filter(d => {
+              const matchesCategory = categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather';
+              // Node-Centric Filtering: Only show disruptions in regions where we have active suppliers
+              const matchesRegion = activeRegions.some(region => {
+                const regionParts = region.toLowerCase().split(',').map(p => p.trim());
+                const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
+                return regionParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+              });
+              return matchesCategory && matchesRegion;
+            }).map((d) => {
+              const displayTitle = d.title === "Operational Stability" 
+                ? `Operational Stability: ${d.location}` 
+                : d.title;
+
+              return (
+                <button 
+                  key={d.id} 
+                  onClick={() => onNavigateToResource(displayTitle)}
+                  className="w-full text-left p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all group"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                      d.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {d.severity} Priority
+                    </span>
+                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-1">
+                      <Clock size={10} /> {getRelativeTime(d.timestamp)}
+                    </span>
+                  </div>
+                  <h4 className="font-black text-white text-sm sm:text-base leading-tight mb-2 truncate group-hover:text-blue-400 transition-colors">{displayTitle}</h4>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed font-medium">{d.summary}</p>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

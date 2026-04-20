@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Supplier, User, RiskStatus, Disruption } from './types';
 import { MOCK_DISRUPTIONS, MOCK_SUPPLIERS } from './constants';
 import { fetchWeatherAlerts } from './services/weatherService';
+import { generateGlobalRiskSignals } from './services/geminiService';
 import Layout from './components/Layout';
 import AuthView from './views/AuthView';
 import DashboardView from './views/DashboardView';
@@ -31,7 +32,21 @@ const App: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<RiskStatus | 'ALL'>('ALL');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const saved = localStorage.getItem('cg_suppliers');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return MOCK_SUPPLIERS;
+      }
+    }
+    return MOCK_SUPPLIERS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('cg_suppliers', JSON.stringify(suppliers));
+  }, [suppliers]);
   const [simulatedRiskyNodes, setSimulatedRiskyNodes] = useState<string[]>([]);
   
   const getPlanNodeLimit = (planName?: string) => {
@@ -52,22 +67,56 @@ const App: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: string } | null>(null);
   const [resourceContext, setResourceContext] = useState<{ title: string; sources: { title: string; uri: string }[] } | null>(null);
   const [disruptions, setDisruptions] = useState<Disruption[]>(MOCK_DISRUPTIONS);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const isInitialMount = React.useRef(true);
+
+  const refreshDisruptions = async () => {
+    if (isRefreshing || !user) return;
+    setIsRefreshing(true);
+    try {
+      const dynamicDisruptions = await generateGlobalRiskSignals(user, suppliers);
+      const weatherAlerts = await fetchWeatherAlerts(suppliers);
+      
+      // Combine and filter duplicates by title and location
+      const combined = [...dynamicDisruptions, ...weatherAlerts].filter((v, i, a) => 
+        a.findIndex(t => t.title === v.title && t.location === v.location) === i
+      );
+      setDisruptions(combined);
+      
+      if (dynamicDisruptions.length > 0 || weatherAlerts.length > 0) {
+        // Only show toast if it's not the initial automatic refresh or if it's a manual resync
+        toast.success("Intelligence Refreshed", {
+          description: `Synchronized with ${combined.length} real-time risk signals.`,
+          id: 'refresh-toast' // Use a fixed ID to prevent duplicates
+        });
+      }
+    } catch (error) {
+      console.error("Refresh Error:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const getAlerts = async () => {
-      const weatherAlerts = await fetchWeatherAlerts(suppliers);
-      if (weatherAlerts.length > 0) {
-        setDisruptions(prev => {
-          const nonWeather = prev.filter(d => !d.id.startsWith('weather-'));
-          return [...nonWeather, ...weatherAlerts];
-        });
+    if (isInitialMount.current) {
+      refreshDisruptions();
+      isInitialMount.current = false;
+    }
+    
+    // Dynamic refresh frequency based on tier
+    const getRefreshInterval = () => {
+      switch (user?.plan) {
+        case 'Business': return 120000; // 2 mins
+        case 'Intermediate': return 300000; // 5 mins
+        case 'Basic': return 600000; // 10 mins
+        default: return 600000;
       }
     };
 
-    getAlerts();
-    const interval = setInterval(getAlerts, 300000);
+    const interval = setInterval(refreshDisruptions, getRefreshInterval());
     return () => clearInterval(interval);
-  }, []);
+  }, [suppliers.length, user?.plan]);
 
   const handleAuthComplete = (userData: User) => {
     setUser(userData);
@@ -142,6 +191,9 @@ const App: React.FC = () => {
               setView('RESOURCES');
             }}
             disruptions={disruptions}
+            suppliers={activeSuppliers}
+            isRefreshing={isRefreshing}
+            onResync={refreshDisruptions}
           />
         );
       case 'REGISTRY':
@@ -169,7 +221,19 @@ const App: React.FC = () => {
           />
         );
       case 'FEED':
-        return <FeedView user={user} categoryFilter={categoryFilter} onNavigateToResources={() => setView('RESOURCES')} disruptions={disruptions} />;
+        return (
+          <FeedView 
+            user={user} 
+            categoryFilter={categoryFilter} 
+            onNavigateToResources={(title) => {
+              setResourceContext({ title, sources: [] });
+              setView('RESOURCES');
+            }} 
+            disruptions={disruptions} 
+            suppliers={suppliers} 
+            isRefreshing={isRefreshing}
+          />
+        );
       case 'SETTINGS':
         return <SettingsView user={user} onNavigate={setView} />;
       case 'SUBSCRIPTION':
@@ -202,6 +266,8 @@ const App: React.FC = () => {
               setView('DASHBOARD');
             }} 
             context={resourceContext}
+            disruptions={disruptions}
+            suppliers={activeSuppliers}
           />
         );
       case 'PAYMENT':

@@ -1,7 +1,9 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, BookOpen, FileText, Globe, Search, ArrowRight, ExternalLink, X, Download, Printer, Loader2, ShieldAlert, FileCheck, ChevronDown, FileDown, Archive } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Globe, Search, ArrowRight, ExternalLink, X, Download, Printer, Loader2, ShieldAlert, FileCheck, ChevronDown, FileDown, Archive, Zap } from 'lucide-react';
+import { HISTORICAL_ARCHIVE_2024 } from '../constants';
 import { generateResourceBriefing, generateResourceDocument, ResourceBriefing, ResourceDocument } from '../services/resourceAiService';
+import { Disruption, Supplier, RiskStatus } from '../types';
 import Markdown from 'react-markdown';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -19,9 +21,11 @@ interface Resource {
 interface ResourcesViewProps {
   onBack: () => void;
   context?: { title: string; sources: { title: string; uri: string }[] } | null;
+  disruptions?: Disruption[];
+  suppliers?: Supplier[];
 }
 
-const ResourcesView: React.FC<ResourcesViewProps> = ({ onBack, context }) => {
+const ResourcesView: React.FC<ResourcesViewProps> = ({ onBack, context, disruptions = [], suppliers = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewingResource, setViewingResource] = useState<Resource | null>(null);
@@ -35,6 +39,16 @@ const ResourcesView: React.FC<ResourcesViewProps> = ({ onBack, context }) => {
   const documentRef = useRef<HTMLDivElement>(null);
 
   const recentResources: Resource[] = useMemo(() => {
+    // 1. Map current disruptions to resources
+    const realTimeSignals: Resource[] = disruptions.map((d, index) => ({
+      id: 5000 + index,
+      title: d.title,
+      type: 'Report',
+      date: 'Real-time',
+      category: 'intelligence',
+      location: d.location
+    }));
+
     const base = [
       // 2026 - Current
       { id: 1, title: '2026 Global Logistics Resilience Strategy', type: 'PDF', date: 'Mar 2026', category: 'reports', location: 'Global' },
@@ -49,32 +63,51 @@ const ResourcesView: React.FC<ResourcesViewProps> = ({ onBack, context }) => {
       { id: 8, title: 'Red Sea Maritime Security Protocol v2.1', type: 'Manual', date: 'Aug 2025', category: 'handbooks', location: 'Red Sea' },
       { id: 9, title: 'NOAA Climate Impact Forecast 2025-2030', type: 'Link', date: 'Jul 2025', category: 'geospatial', url: 'https://www.noaa.gov', location: 'Global' },
       
-      // 2024 - Archives
-      { id: 10, title: 'ARCHIVE: 2024 Global Logistics Whitepaper', type: 'PDF', date: 'May 2024', category: 'reports', location: 'Global' },
-      { id: 11, title: 'ARCHIVE: Taiwan Semiconductor Cluster Analysis', type: 'Report', date: 'May 2024', category: 'reports', location: 'Taiwan' },
-      { id: 12, title: 'ARCHIVE: Maritime Trade Disruption Protocol', type: 'Manual', date: 'Apr 2024', category: 'handbooks', location: 'Maritime' },
-      { id: 13, title: 'ARCHIVE: Reuters Supply Chain Index 2024', type: 'Link', date: 'Jun 2024', category: 'reports', url: 'https://www.reuters.com', location: 'Global' },
-      { id: 14, title: 'ARCHIVE: South China Sea Security Brief', type: 'Report', date: 'May 2024', category: 'reports', location: 'South China Sea' },
-      
-      // Specific Incidents (Archives)
-      { id: 1001, title: 'CASE STUDY: 2024 Rotterdam Port Strike', type: 'Report', date: 'May 2024', category: 'reports', location: 'Rotterdam' },
-      { id: 1002, title: 'CASE STUDY: Typhoon Ewan Impact Analysis', type: 'Report', date: 'May 2024', category: 'reports', location: 'South China Sea' },
+      // 2024 Intelligence Archive
+      ...HISTORICAL_ARCHIVE_2024.map(res => ({
+        ...res,
+        title: `2024 ARCHIVE: ${res.title.replace('ARCHIVE: ', '').replace('CASE STUDY: ', '')}`,
+        category: 'archives'
+      }))
     ] as Resource[];
 
-    if (context && context.sources) {
-      const contextResources: Resource[] = context.sources.map((s, i) => ({
-        id: 100 + i,
-        title: s.title,
-        type: 'Link',
-        date: 'Recent',
-        category: 'reports',
-        url: s.uri
-      }));
-      return [...contextResources, ...base];
+    let contextResources: Resource[] = [];
+    if (context) {
+      if (context.sources && context.sources.length > 0) {
+        contextResources = context.sources.map((s, i) => ({
+          id: 100 + i,
+          title: s.title,
+          type: 'Link',
+          date: 'Recent',
+          category: 'reports',
+          url: s.uri
+        }));
+      } else if (context.title) {
+        // If we have a title but no sources, check if it's already in base
+        const exists = base.some(r => r.title === context.title);
+        if (!exists) {
+          contextResources = [{
+            id: 999,
+            title: context.title,
+            type: 'Report',
+            date: 'Real-time',
+            category: 'reports',
+            location: 'Active Node'
+          }];
+        }
+      }
     }
 
-    return base;
-  }, [context]);
+    const combined = [...realTimeSignals, ...contextResources, ...base];
+    const unique = new Map<string, Resource>();
+    combined.forEach(res => {
+      if (!unique.has(res.title)) {
+        unique.set(res.title, res);
+      }
+    });
+
+    return Array.from(unique.values());
+  }, [context, disruptions]);
 
   const categories = useMemo(() => {
     const counts = recentResources.reduce((acc, res) => {
@@ -85,18 +118,21 @@ const ResourcesView: React.FC<ResourcesViewProps> = ({ onBack, context }) => {
     }, {} as Record<string, number>);
 
     return [
-      { title: 'Intelligence Reports', count: counts.reports || 0, icon: FileText, id: 'reports' },
+      { title: 'Linked Intelligence', count: counts.intelligence || 0, icon: Zap, id: 'intelligence' },
+      { title: 'Technical Briefs', count: counts.reports || 0, icon: FileText, id: 'reports' },
       { title: 'Global Handbooks', count: counts.handbooks || 0, icon: BookOpen, id: 'handbooks' },
-      { title: 'Geospatial Assets', count: counts.geospatial || 0, icon: Globe, id: 'geospatial' },
-      { title: 'Historical Archives', count: counts.archives || 0, icon: Archive, id: 'archives' },
+      { title: '2024 Archive', count: counts.archives || 0, icon: Archive, id: 'archives' },
     ];
   }, [recentResources]);
 
   const filteredResources = useMemo(() => {
     return recentResources.filter(res => {
       const matchesSearch = res.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const isHistorical = res.title.includes('ARCHIVE') || res.title.includes('CASE STUDY');
+      const resourceCat = isHistorical ? 'archives' : res.category;
+      
       const matchesCategory = selectedCategory 
-        ? (selectedCategory === 'archives' ? res.title.includes('ARCHIVE') || res.title.includes('CASE STUDY') : res.category === selectedCategory) 
+        ? resourceCat === selectedCategory 
         : true;
       return matchesSearch && matchesCategory;
     });
@@ -108,33 +144,123 @@ const ResourcesView: React.FC<ResourcesViewProps> = ({ onBack, context }) => {
     } else {
       setViewingResource(res);
       setIsLoadingDoc(true);
-      const doc = await generateResourceDocument(res.title, res.location || 'Global', res.type);
+      // Find matching disruption to ensure consistency
+      const matchingDisruption = disruptions.find(d => d.title === res.title || d.location === res.location);
+      const doc = await generateResourceDocument(res.title, res.location || 'Global', res.type, matchingDisruption?.summary);
       setActiveDocument(doc);
       setIsLoadingDoc(false);
     }
   };
 
-  const handleHover = async (res: Resource) => {
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleHover = (res: Resource) => {
     if (res.type === 'Link') return;
     setHoveredResourceId(res.id);
-    if (!briefings[res.id]) {
-      const briefing = await generateResourceBriefing(res.title, res.location || 'Global', res.type);
-      setBriefings(prev => ({ ...prev, [res.id]: briefing }));
+    
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // Only trigger briefing if user stays hovered for 400ms
+    hoverTimeoutRef.current = setTimeout(async () => {
+      if (!briefings[res.id]) {
+        try {
+          const matchingDisruption = disruptions.find(d => d.title === res.title || d.location === res.location);
+          const briefing = await generateResourceBriefing(res.title, res.location || 'Global', res.type, matchingDisruption?.summary);
+          setBriefings(prev => ({ ...prev, [res.id]: briefing }));
+        } catch (error) {
+          console.error("Failed to load briefing on hover:", error);
+        }
+      }
+    }, 400);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredResourceId(null);
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
     }
   };
 
+  const highlightedRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (context && context.title && !viewingResource) {
-      const resource = recentResources.find(r => r.title === context.title);
-      if (resource) {
-        handleResourceClick(resource);
-      }
+    if (context && context.title) {
+      // Clear filters to show all resources (including archives) as requested
+      setSelectedCategory(null);
+      setSearchQuery('');
+      
+      // Small delay to allow the list to render with the new context resource
+      const timer = setTimeout(() => {
+        if (highlightedRef.current) {
+          highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
-  }, [context, recentResources]);
+  }, [context?.title]);
 
   const handlePrint = () => {
     window.print();
   };
+
+  const getResourceRiskLevel = (res: Resource): { label: string; color: string; bg: string; quote: string } => {
+    // 1. Find matching disruption
+    const matchingDisruption = disruptions.find(d => d.title === res.title || (res.location && d.location.includes(res.location)));
+    
+    let highestStatus: RiskStatus = RiskStatus.STABLE;
+
+    if (matchingDisruption) {
+      // Find impacted suppliers and their status
+      matchingDisruption.impactedSuppliers.forEach(sid => {
+        const s = suppliers.find(sup => sup.id === sid);
+        if (s) {
+          if (s.status === RiskStatus.RISKY) highestStatus = RiskStatus.RISKY;
+          else if (s.status === RiskStatus.CAUTION && highestStatus !== RiskStatus.RISKY) highestStatus = RiskStatus.CAUTION;
+        }
+      });
+    } else if (res.location && res.location !== 'Global') {
+      // If no disruption but specific location, check suppliers in that location
+      suppliers.forEach(s => {
+        if (s.location.includes(res.location!)) {
+          if (s.status === RiskStatus.RISKY) highestStatus = RiskStatus.RISKY;
+          else if (s.status === RiskStatus.CAUTION && highestStatus !== RiskStatus.RISKY) highestStatus = RiskStatus.CAUTION;
+        }
+      });
+    }
+
+    switch (highestStatus as RiskStatus) {
+      case RiskStatus.RISKY:
+        return { 
+          label: 'High', 
+          color: 'text-rose-600', 
+          bg: 'bg-rose-100', 
+          quote: "Regional telemetry indicates a high-sensitivity environment requiring immediate node synchronization and proactive mitigation."
+        };
+      case RiskStatus.CAUTION:
+        return { 
+          label: 'Medium', 
+          color: 'text-amber-600', 
+          bg: 'bg-amber-100', 
+          quote: "Operational caution advised. Telemetry shows minor variance in regional throughput requiring sustained monitoring."
+        };
+      default:
+        return { 
+          label: 'Low', 
+          color: 'text-emerald-600', 
+          bg: 'bg-emerald-100', 
+          quote: "Node maintaining baseline stability. High-frequency telemetry confirms optimal throughput across all regional vectors."
+        };
+    }
+  };
+
+  const currentRisk = useMemo(() => {
+    if (!viewingResource) return null;
+    return getResourceRiskLevel(viewingResource);
+  }, [viewingResource, disruptions, suppliers]);
 
   const handleExportTXT = () => {
     if (!activeDocument || !viewingResource) return;
@@ -147,7 +273,7 @@ ${separator}
 CHAIN GUARD GLOBAL INTELLIGENCE PROTOCOL
 ${separator}
 CLASSIFICATION: ${activeDocument.classification}
-DOCUMENT ID:    CG-RES-${viewingResource.id}-2024
+DOCUMENT ID:    CG-RES-${viewingResource.id}-${viewingResource.date.match(/\d{4}/)?.[0] || '2026'}
 TITLE:          ${viewingResource.title}
 DATE:           ${viewingResource.date}
 ${separator}
@@ -421,8 +547,8 @@ ${separator}
                       <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm">04</div>
                       <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight border-b-2 border-slate-900 flex-1 pb-1">Risk Assessment</h2>
                     </div>
-                    <div className="bg-slate-50 p-8 border-l-8 border-slate-900 italic text-slate-600 mb-8 text-lg">
-                      "Regional telemetry indicates a high-sensitivity environment requiring immediate node synchronization and proactive mitigation."
+                    <div className={`bg-slate-50 p-8 border-l-8 ${currentRisk?.label === 'High' ? 'border-rose-600 font-bold text-rose-900 bg-rose-50' : currentRisk?.label === 'Medium' ? 'border-amber-600 text-amber-900 bg-amber-50' : 'border-slate-900 text-slate-600'} italic mb-8 text-lg`}>
+                      "{currentRisk?.quote || "Regional telemetry indicates a high-sensitivity environment requiring immediate node synchronization and proactive mitigation."}"
                     </div>
                     <div className="text-lg leading-relaxed text-slate-700 font-medium markdown-body">
                       <Markdown>{activeDocument.riskAssessment}</Markdown>
@@ -447,13 +573,13 @@ ${separator}
                           <p className="text-sm font-black uppercase">Protocol Verified</p>
                         </div>
                       </div>
-                      <div className="p-6 border-2 border-slate-900 rounded-xl flex items-center gap-4 bg-slate-50">
-                        <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                      <div className={`p-6 border-2 border-slate-900 rounded-xl flex items-center gap-4 ${currentRisk?.bg || 'bg-slate-50'}`}>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${currentRisk?.label === 'High' ? 'bg-rose-200 text-rose-600' : currentRisk?.label === 'Medium' ? 'bg-amber-200 text-amber-600' : 'bg-emerald-200 text-emerald-600'}`}>
                           <ShieldAlert size={28} />
                         </div>
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Assessment</p>
-                          <p className="text-sm font-black uppercase">Risk Level: High</p>
+                          <p className={`text-sm font-black uppercase ${currentRisk?.color || 'text-slate-900'}`}>Risk Level: {currentRisk?.label || 'High'}</p>
                         </div>
                       </div>
                     </div>
@@ -527,20 +653,29 @@ ${separator}
 
       <div className="bg-[#0a0f1c] rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 overflow-hidden">
         <div className="p-6 sm:p-8 border-b border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg sm:text-xl font-bold text-white uppercase tracking-tight">
-              {context ? context.title : (selectedCategory ? categories.find(c => c.id === selectedCategory)?.title : 'Recent Intelligence')}
-            </h3>
-            {(selectedCategory || context) && (
-              <button 
-                onClick={() => {
-                  setSelectedCategory(null);
-                  onBack(); // This will clear context in App.tsx
-                }}
-                className="text-[10px] font-black text-blue-400 uppercase tracking-widest hover:text-blue-300"
-              >
-                Clear Filter
-              </button>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg sm:text-xl font-bold text-white uppercase tracking-tight">
+                {selectedCategory ? categories.find(c => c.id === selectedCategory)?.title : 'Intelligence Library'}
+              </h3>
+              {(selectedCategory || context) && (
+                <button 
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    setSearchQuery('');
+                    if (context) onBack(); // Clear context
+                  }}
+                  className="text-[10px] font-black text-blue-400 uppercase tracking-widest hover:text-blue-300 flex items-center gap-1"
+                >
+                  <X size={12} /> Reset View
+                </button>
+              )}
+            </div>
+            {context && (
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                Linked to: <span className="text-blue-400">{context.title}</span>
+              </div>
             )}
           </div>
           <div className="relative w-full sm:w-auto">
@@ -556,15 +691,27 @@ ${separator}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 p-6 sm:p-8 min-h-[300px]">
           {filteredResources.length > 0 ? (
-            filteredResources.map((res) => (
-              <div 
-                key={res.id} 
-                onClick={() => handleResourceClick(res)}
-                onMouseEnter={() => handleHover(res)}
-                onMouseLeave={() => setHoveredResourceId(null)}
-                className="relative p-6 bg-white/5 rounded-3xl border border-white/10 hover:border-blue-500/50 hover:bg-white/[0.08] transition-all cursor-pointer group flex flex-col h-full overflow-hidden hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/10"
-              >
-                {/* Briefing Overlay */}
+            filteredResources.map((res) => {
+              const isHighlighted = context?.title === res.title;
+              return (
+                <div 
+                  key={res.id} 
+                  ref={isHighlighted ? highlightedRef : null}
+                  onClick={() => handleResourceClick(res)}
+                  onMouseEnter={() => handleHover(res)}
+                  onMouseLeave={handleMouseLeave}
+                  className={`relative p-6 bg-white/5 rounded-3xl border transition-all cursor-pointer group flex flex-col h-full overflow-hidden hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/10 ${
+                    isHighlighted 
+                      ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.2)] ring-2 ring-blue-500/50' 
+                      : 'border-white/10 hover:border-blue-500/50 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  {isHighlighted && (
+                    <div className="absolute top-0 right-0 px-3 py-1 bg-blue-600 text-[8px] font-black text-white uppercase tracking-widest rounded-bl-xl z-20 animate-pulse">
+                      Linked Intelligence
+                    </div>
+                  )}
+                  {/* Briefing Overlay */}
                 {hoveredResourceId === res.id && (
                   <div className="absolute inset-0 z-10 bg-[#0a0f1c]/90 backdrop-blur-sm p-6 flex flex-col animate-in slide-in-from-bottom-full duration-300 border border-blue-500/50">
                     <div className="flex justify-between items-start mb-4">
@@ -633,8 +780,9 @@ ${separator}
                   <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Access Protocol</span>
                   <span className="text-[9px] font-bold text-blue-500 uppercase">Authorized</span>
                 </div>
-              </div>
-            ))
+                </div>
+              );
+            })
           ) : (
             <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-500">
               <Search size={48} className="mb-4 opacity-20" />

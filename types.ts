@@ -11,6 +11,7 @@ export interface User {
   company: string;
   role: Role;
   accessKey: string;
+  hqLocation?: string;
   hqCoordinates?: [number, number];
   sectors?: string[];
   plan?: string;

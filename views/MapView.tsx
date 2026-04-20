@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, MarkerF, PolylineF, OverlayViewF } from '@react-google-maps/api';
 import { MOCK_SUPPLIERS } from '../constants';
 import { Disruption, RiskStatus, Supplier } from '../types';
 import { Activity, Zap, ShieldAlert, Target, Globe, ChevronDown, ChevronUp, Map as MapIcon, Layers, CloudRain, CloudLightning, Wind, Sun, AlertTriangle } from 'lucide-react';
@@ -14,16 +15,108 @@ interface MapViewProps {
   disruptions?: Disruption[];
 }
 
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#070b14" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#070b14" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#2563eb" }, { opacity: 0.5 }] },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#64748b" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#334155" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#1e293b" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#64748b" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#0f172a" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#1e293b" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#475569" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#1e293b" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#334155" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#64748b" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#111827" }],
+  },
+  {
+    featureType: "transit.station",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#64748b" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#0a1224" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#2563eb" }, { opacity: 0.3 }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#070b14" }],
+  },
+];
+
 const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilter, onSelectSupplier, hqLocation = [37.7749, -122.4194], disruptions = [] }) => {
   const [hovered, setHovered] = useState<Supplier | null>(null);
   const [hoveredAlert, setHoveredAlert] = useState<Disruption | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [activeLayer, setActiveLayer] = useState<'SATELLITE' | 'WEATHER'>('SATELLITE');
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [mapCenter, setMapCenter] = useState({ lat: hqLocation[0], lng: hqLocation[1] });
+  const [mapZoom, setMapZoom] = useState(3);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setMapLoaded(true), 1000);
-    return () => clearTimeout(timer);
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: (process.env.VITE_GOOGLE_MAPS_API_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").replace(/"/g, "")
+  });
+
+  const onUnmount = React.useCallback(function callback(map: google.maps.Map) {
+    setMap(null);
   }, []);
 
   const filteredSuppliers = suppliers.filter(s => {
@@ -33,15 +126,6 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
   });
 
   const weatherAlerts = disruptions.filter(d => d.type === 'Weather');
-
-  const getCoordinates = (lat: number, lng: number) => {
-    // Mercator-ish projection for mock SVG space
-    const x = ((lng + 180) / 360) * 100;
-    const y = ((90 - lat) / 180) * 100;
-    return { x, y };
-  };
-
-  const hqPos = getCoordinates(hqLocation[0], hqLocation[1]);
 
   const chartData = [
     { name: 'Stable', value: Math.round((suppliers.filter(s => s.status === RiskStatus.STABLE).length / suppliers.length) * 100), color: '#10b981' },
@@ -57,11 +141,55 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
     return <Sun className="w-3 h-3 text-amber-200" />;
   };
 
+  const center = React.useMemo(() => ({
+    lat: hqLocation[0],
+    lng: hqLocation[1]
+  }), [hqLocation]);
+
+  const mapOptions = React.useMemo(() => ({
+    styles: darkMapStyle,
+    disableDefaultUI: true,
+    zoomControl: false,
+    backgroundColor: '#070b14',
+    gestureHandling: 'greedy' as const,
+    maxZoom: 18,
+    minZoom: 2
+  }), []);
+
+  const handleMarkerClick = (s: Supplier) => {
+    onSelectSupplier(s);
+    if (map) {
+      const newPos = { lat: s.coordinates[0], lng: s.coordinates[1] };
+      map.panTo(newPos);
+      map.setZoom(8);
+      // We also update state to prevent snapping back on next render
+      setMapCenter(newPos);
+      setMapZoom(8);
+    }
+  };
+
+  const handleMapLoad = useCallback((mapInstance: google.maps.Map) => {
+    setMap(mapInstance);
+  }, []);
+
+  const handleMapIdle = () => {
+    if (map) {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      if (center) {
+        setMapCenter({ lat: center.lat(), lng: center.lng() });
+      }
+      if (zoom !== undefined) {
+        setMapZoom(zoom);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col xl:flex-row h-full animate-in fade-in duration-700 bg-[#070b14] overflow-hidden">
-      {/* Map Canvas / Google Maps Simulation */}
+      {/* Google Maps View */}
       <div className="h-[40%] sm:h-[50%] xl:h-full xl:flex-1 relative overflow-hidden bg-[#070b14] min-h-[200px] sm:min-h-[300px] xl:min-h-0 shrink-0">
-        {!mapLoaded ? (
+        {!isLoaded ? (
           <div className="absolute inset-0 flex items-center justify-center">
              <div className="flex flex-col items-center gap-4">
                 <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -70,116 +198,154 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
           </div>
         ) : (
           <>
-            {/* Real-time Satellite Grid Pattern */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none" 
-                 style={{ 
-                   backgroundImage: 'radial-gradient(circle, #2563eb 1px, transparent 1px)', 
-                   backgroundSize: '40px 40px',
-                 }} />
-            
-            {/* Subtle Map Glow */}
-            <div className="absolute inset-0 bg-radial-at-c from-blue-600/5 to-transparent pointer-events-none" />
- 
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full preserve-3d">
-              {/* Connection Lines from HQ to Suppliers */}
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={mapCenter}
+              zoom={mapZoom}
+              onLoad={handleMapLoad}
+              onUnmount={onUnmount}
+              onIdle={handleMapIdle}
+              options={mapOptions}
+            >
+              {/* HQ Marker */}
+              <MarkerF
+                position={center}
+                icon={{
+                  path: "M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z",
+                  scale: 1.5,
+                  fillColor: "#2563eb",
+                  fillOpacity: 1,
+                  strokeColor: "white",
+                  strokeWeight: 2,
+                  anchor: new google.maps.Point(12, 12),
+                  rotation: 0
+                }}
+                label={{
+                  text: "HQ",
+                  color: "white",
+                  fontSize: "12px",
+                  fontWeight: "900",
+                  className: "mt-8"
+                }}
+              />
+
+              {/* Connection Polylines */}
               {filteredSuppliers.map(s => {
-                const pos = getCoordinates(s.coordinates[0], s.coordinates[1]);
                 const isRisky = s.status === RiskStatus.RISKY;
                 return (
-                    <path 
-                      key={`line-${s.id}`}
-                      d={`M ${hqPos.x} ${hqPos.y} Q ${(hqPos.x + pos.x) / 2} ${(hqPos.y + pos.y) / 2 - 5} ${pos.x} ${pos.y}`}
-                      fill="none"
-                      stroke={isRisky ? '#f43f5e' : '#2563eb'} 
-                      strokeWidth="0.15" 
-                      strokeDasharray={isRisky ? "0.2,0.2" : "0.5,0.5"}
-                      className={`${isRisky ? 'animate-pulse opacity-60' : 'opacity-30'}`}
-                    />
-                );
-              })}
-
-              {/* HQ Marker */}
-              <g className="hq-marker">
-                <circle cx={hqPos.x} cy={hqPos.y} r="3" fill="#2563eb" className="animate-ping opacity-20" />
-                <circle cx={hqPos.x} cy={hqPos.y} r="1.8" fill="#2563eb" className="shadow-[0_0_20px_#2563eb]" />
-                <circle cx={hqPos.x} cy={hqPos.y} r="0.6" fill="white" />
-                <text x={hqPos.x} y={hqPos.y - 4} textAnchor="middle" fill="#2563eb" className="text-[2px] font-black uppercase tracking-[0.3em]">Enterprise HQ</text>
-              </g>
-
-              {/* Weather Layer */}
-              {activeLayer === 'WEATHER' && weatherAlerts.map(alert => {
-                // Find the first impacted supplier to place the alert icon
-                const firstSupplier = suppliers.find(s => alert.impactedSuppliers.includes(s.id));
-                if (!firstSupplier) return null;
-                const pos = getCoordinates(firstSupplier.coordinates[0], firstSupplier.coordinates[1]);
-                const isHighSeverity = alert.severity === 'High';
-                
-                return (
-                  <g key={alert.id} className="animate-in fade-in duration-500">
-                    <circle 
-                      cx={pos.x} cy={pos.y} r={isHighSeverity ? 6 : 4} 
-                      fill={isHighSeverity ? 'rgba(245,158,11,0.1)' : 'rgba(37,99,235,0.1)'} 
-                      className="animate-pulse"
-                    />
-                    <foreignObject x={pos.x - 2} y={pos.y - 2} width="4" height="4">
-                      <div 
-                        className="w-full h-full flex items-center justify-center cursor-help"
-                        onMouseEnter={() => setHoveredAlert(alert)}
-                        onMouseLeave={() => setHoveredAlert(null)}
-                      >
-                        {alert.weatherIcon ? (
-                          <img 
-                            src={`https://openweathermap.org/img/wn/${alert.weatherIcon}@2x.png`} 
-                            alt={alert.title}
-                            className="w-full h-full drop-shadow-lg"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          alert.title.toLowerCase().includes('thunderstorm') ? <CloudLightning className="w-full h-full text-amber-400 drop-shadow-lg" /> : <CloudRain className="w-full h-full text-blue-400 drop-shadow-lg" />
-                        )}
-                      </div>
-                    </foreignObject>
-                  </g>
+                  <PolylineF
+                    key={`line-${s.id}`}
+                    path={[
+                      center,
+                      { lat: s.coordinates[0], lng: s.coordinates[1] }
+                    ]}
+                    options={{
+                      strokeColor: isRisky ? '#f43f5e' : '#2563eb',
+                      strokeOpacity: isRisky ? 0.6 : 0.2,
+                      strokeWeight: isRisky ? 2 : 1,
+                      geodesic: true,
+                      icons: isRisky ? [{
+                        icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 },
+                        offset: '0',
+                        repeat: '10px'
+                      }] : []
+                    }}
+                  />
                 );
               })}
 
               {/* Supplier Markers */}
               {filteredSuppliers.map(s => {
-                const pos = getCoordinates(s.coordinates[0], s.coordinates[1]);
                 const color = s.status === RiskStatus.RISKY ? '#f43f5e' : s.status === RiskStatus.CAUTION ? '#f59e0b' : '#10b981';
-                const isHovered = hovered?.id === s.id;
-                
+                const isRisky = s.status === RiskStatus.RISKY;
                 return (
-                  <g 
-                    key={s.id} 
-                    className="cursor-pointer group"
-                    onMouseEnter={() => setHovered(s)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() => onSelectSupplier(s)}
-                  >
-                    {s.status === RiskStatus.RISKY && (
-                      <circle 
-                        cx={pos.x} cy={pos.y} r="3" 
-                        fill="none"
-                        stroke={color}
-                        strokeWidth="0.1"
-                        className="animate-ping opacity-40"
-                      />
-                    )}
-                    <circle 
-                      cx={pos.x} cy={pos.y} r={isHovered ? 2.5 : 1.8} 
-                      fill={`${color}22`} 
-                      className="transition-all duration-300"
-                    />
-                    <circle 
-                      cx={pos.x} cy={pos.y} r={isHovered ? 1 : 0.8} 
-                      fill={color} 
-                      className="transition-all duration-300 shadow-[0_0_10px_currentColor]"
-                    />
-                  </g>
+                  <MarkerF
+                    key={s.id}
+                    position={{ lat: s.coordinates[0], lng: s.coordinates[1] }}
+                    onMouseOver={() => setHovered(s)}
+                    onMouseOut={() => setHovered(null)}
+                    onClick={() => handleMarkerClick(s)}
+                    icon={{
+                      path: isRisky 
+                        ? "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" // Warning circle
+                        : google.maps.SymbolPath.CIRCLE,
+                      scale: isRisky ? 1.2 : 6,
+                      fillColor: color,
+                      fillOpacity: 1,
+                      strokeColor: "white",
+                      strokeWeight: isRisky ? 0 : 1,
+                    }}
+                  />
                 );
               })}
-            </svg>
+
+              {/* Bespoke Overlay for Supplier Details (Node Pop-up) */}
+              {hovered && (
+                <OverlayViewF
+                  position={{ lat: hovered.coordinates[0], lng: hovered.coordinates[1] }}
+                  mapPaneName="overlayMouseTarget"
+                >
+                  <div 
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-4 pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+                  >
+                    {/* Shaded White Card */}
+                    <div className="bg-[#f8fafc] p-2 rounded shadow-2xl flex items-center gap-2 min-w-[170px] border border-slate-200/50">
+                      <div className="w-8 h-8 rounded bg-slate-200/40 flex items-center justify-center font-black text-slate-800 text-[10px] border border-slate-300/30">
+                        {hovered.name.charAt(0)}
+                      </div>
+                      <div className="flex flex-col flex-1 overflow-hidden">
+                        <span className="text-[11px] font-black text-black truncate leading-none mb-0.5 tracking-tight">{hovered.name}</span>
+                        <span className="text-[9px] font-black text-slate-800 uppercase tracking-tighter truncate">{hovered.location}</span>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 ml-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${hovered.status === RiskStatus.RISKY ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : hovered.status === RiskStatus.CAUTION ? 'bg-amber-500' : 'bg-green-500'}`} />
+                        <span className={`text-[7px] font-black uppercase tracking-widest ${hovered.status === RiskStatus.RISKY ? 'text-red-500' : hovered.status === RiskStatus.CAUTION ? 'text-amber-500' : 'text-green-500'}`}>
+                          {hovered.status}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Tooltip Arrow */}
+                    <div className="w-2.5 h-2.5 bg-[#f8fafc] border-r border-b border-slate-200/50 rotate-45 mx-auto -mt-1.5 shadow-xl" />
+                  </div>
+                </OverlayViewF>
+              )}
+
+              {/* Weather Alert Layers (Mocked overlaying points) */}
+              {activeLayer === 'WEATHER' && weatherAlerts.map(alert => {
+                const firstSupplier = suppliers.find(s => alert.impactedSuppliers.includes(s.id));
+                if (!firstSupplier) return null;
+                return (
+                  <MarkerF
+                    key={alert.id}
+                    position={{ lat: firstSupplier.coordinates[0] + 0.5, lng: firstSupplier.coordinates[1] + 0.5 }}
+                    onMouseOver={() => setHoveredAlert(alert)}
+                    onMouseOut={() => setHoveredAlert(null)}
+                    icon={{
+                      url: alert.weatherIcon ? `https://openweathermap.org/img/wn/${alert.weatherIcon}.png` : "",
+                      scaledSize: new google.maps.Size(30, 30)
+                    }}
+                  />
+                );
+              })}
+            </GoogleMap>
+
+            {/* Weather Alert Tooltip (Absolute relative to viewport if using GoogleMap InfoWindow is restrictive) */}
+            {hoveredAlert && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[120%] z-[60] animate-in fade-in zoom-in-95 duration-200">
+                <div className="bg-amber-950/90 border border-amber-500/30 rounded-2xl shadow-2xl px-5 py-4 min-w-[280px] backdrop-blur-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-amber-500/20 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-white">{hoveredAlert.title}</span>
+                      <span className="text-[10px] font-black text-amber-500/70 uppercase tracking-widest">{hoveredAlert.severity} Severity</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">{hoveredAlert.summary}</p>
+                </div>
+              </div>
+            )}
 
             {/* Overlays */}
             <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-col items-start gap-2 z-20">
@@ -209,66 +375,11 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
                 </button>
               </div>
             </div>
-
-            {/* Weather Alert Tooltip */}
-            {hoveredAlert && (
-              <div 
-                className="absolute z-[60] pointer-events-none animate-in fade-in zoom-in-95 duration-200"
-                style={{ 
-                  left: `${getCoordinates(suppliers.find(s => hoveredAlert.impactedSuppliers.includes(s.id))?.coordinates[0] || 0, suppliers.find(s => hoveredAlert.impactedSuppliers.includes(s.id))?.coordinates[1] || 0).x}%`, 
-                  top: `${getCoordinates(suppliers.find(s => hoveredAlert.impactedSuppliers.includes(s.id))?.coordinates[0] || 0, suppliers.find(s => hoveredAlert.impactedSuppliers.includes(s.id))?.coordinates[1] || 0).y - 12}%`,
-                  transform: 'translateX(-50%)'
-                }}
-              >
-                <div className="bg-amber-950/90 border border-amber-500/30 rounded-2xl shadow-2xl px-5 py-4 min-w-[280px] backdrop-blur-xl">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-amber-500/20 rounded-lg">
-                      <AlertTriangle className="w-5 h-5 text-amber-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-white">{hoveredAlert.title}</span>
-                      <span className="text-[10px] font-black text-amber-500/70 uppercase tracking-widest">{hoveredAlert.severity} Severity</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{hoveredAlert.summary}</p>
-                </div>
-                <div className="w-3 h-3 bg-amber-950/90 border-r border-b border-amber-500/30 rotate-45 mx-auto -mt-1.5" />
-              </div>
-            )}
-
-            {hovered && (
-              <div 
-                className="absolute z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200"
-                style={{ 
-                  left: `${getCoordinates(hovered.coordinates[0], hovered.coordinates[1]).x}%`, 
-                  top: `${getCoordinates(hovered.coordinates[0], hovered.coordinates[1]).y - 10}%`,
-                  transform: 'translateX(-50%)'
-                }}
-              >
-                <div className="bg-[#070b14] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] px-4 py-3 flex items-center gap-4 min-w-[200px]">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center font-black text-blue-400 text-sm">
-                    {hovered.name.charAt(0)}
-                  </div>
-                  <div className="flex flex-col flex-1">
-                    <span className="text-sm font-bold text-white whitespace-nowrap">{hovered.name}</span>
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{hovered.location}</span>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className={`w-2.5 h-2.5 rounded-full ${hovered.status === RiskStatus.RISKY ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)]' : hovered.status === RiskStatus.CAUTION ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.6)]' : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]'}`} />
-                    <span className={`text-[8px] font-black uppercase tracking-widest ${hovered.status === RiskStatus.RISKY ? 'text-rose-500' : hovered.status === RiskStatus.CAUTION ? 'text-amber-500' : 'text-emerald-500'}`}>
-                      {hovered.status}
-                    </span>
-                  </div>
-                </div>
-                {/* Tooltip Arrow */}
-                <div className="w-3 h-3 bg-[#070b14] border-r border-b border-white/10 rotate-45 mx-auto -mt-1.5 shadow-xl" />
-              </div>
-            )}
           </>
         )}
       </div>
 
-      {/* Responsive Telemetry Panel */}
+      {/* Telemetry Panel */}
       <div className={`${isPanelCollapsed ? 'xl:w-16' : 'xl:w-96'} w-full bg-[#070b14]/60 backdrop-blur-2xl border-t xl:border-t-0 xl:border-l border-white/10 flex flex-col transition-all duration-500 ease-in-out shadow-2xl flex-1 xl:flex-none xl:h-full overflow-hidden relative`}>
         <div className={`flex ${isPanelCollapsed ? 'xl:flex-col xl:justify-center' : 'justify-between'} items-center p-4 sm:p-6 border-b border-white/10 bg-white/5`}>
           <div className={`flex items-center gap-3 transition-all duration-300 ${isPanelCollapsed ? 'xl:hidden' : 'opacity-100'}`}>
@@ -278,7 +389,6 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
           <button 
             onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
             className={`p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white ${isPanelCollapsed ? 'xl:mx-auto' : ''}`}
-            title={isPanelCollapsed ? "Expand Panel" : "Collapse Panel"}
           >
             {isPanelCollapsed ? <ChevronUp className="xl:rotate-90" /> : <ChevronDown className="xl:-rotate-90" />}
           </button>
@@ -329,14 +439,14 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
 
           <div className="space-y-3 sm:space-y-4">
              {chartData.map((item) => (
-               <div key={item.name} className="flex justify-between items-center px-4 group cursor-default">
-                 <div className="flex items-center gap-3">
-                   <div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: item.color, color: item.color }} />
-                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-300 transition-colors">{item.name}</span>
-                 </div>
-                 <span className="text-[10px] font-black text-white">{item.value}%</span>
-               </div>
-             ))}
+                <div key={item.name} className="flex justify-between items-center px-4 group cursor-default">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: item.color, color: item.color }} />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-300 transition-colors">{item.name}</span>
+                  </div>
+                  <span className="text-[10px] font-black text-white">{item.value}%</span>
+                </div>
+              ))}
           </div>
 
           <div className="pt-6 sm:pt-8 border-t border-white/5">
@@ -366,7 +476,6 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
           </div>
         </div>
         
-        {/* Collapsed State Icons */}
         {isPanelCollapsed && (
           <div className="hidden xl:flex flex-col items-center gap-8 pt-10">
             <Target size={20} className="text-blue-400" />

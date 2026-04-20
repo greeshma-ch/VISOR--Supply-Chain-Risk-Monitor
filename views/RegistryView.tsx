@@ -244,7 +244,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                       <div>
                         <p className="font-extrabold text-white text-sm">{supplier.name}</p>
                         <p className={`text-[10px] font-medium mt-0.5 transition-all ${user.plan === 'Business' || user.plan === 'Intermediate' ? 'text-slate-500' : 'text-slate-700 blur-[3px] select-none cursor-not-allowed'}`}>
-                          {user.plan === 'Business' || user.plan === 'Intermediate' ? supplier.contactEmail : '••••••••@••••.com'}
+                          {user.plan === 'Business' || user.plan === 'Intermediate' ? (supplier.contactEmail || 'Contact not listed') : '••••••••@••••.com'}
                         </p>
                       </div>
                     </div>
@@ -299,7 +299,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                   <span className="flex items-center gap-1.5"><MapPin size={12} /> {supplier.location}</span>
                   <span className="flex items-center gap-1.5"><Tag size={12} /> {supplier.category}</span>
                   {(user.plan === 'Business' || user.plan === 'Intermediate') && (
-                    <span className="flex items-center gap-1.5 text-blue-400/80 lowercase font-medium tracking-normal"><Mail size={12} /> {supplier.contactEmail}</span>
+                    <span className="flex items-center gap-1.5 text-blue-400/80 lowercase font-medium tracking-normal"><Mail size={12} /> {supplier.contactEmail || 'No contact provided'}</span>
                   )}
                 </div>
               </div>
@@ -385,7 +385,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                   <Mail size={16} /> Operational Contact
                 </label>
-                <input required name="email" type="email" placeholder="ops@supplier.com" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
+                <input name="email" type="email" placeholder="ops@supplier.com" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
               </div>
               <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all">
                 Finalize Node Registry
