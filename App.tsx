@@ -275,6 +275,7 @@ const App: React.FC = () => {
       case 'RESOURCES':
         return (
           <ResourcesView 
+            user={user}
             onBack={() => {
               setResourceContext(null);
               setView('DASHBOARD');
