@@ -12,18 +12,19 @@ const impactCache = new Map<string, { data: ImpactAnalysis; timestamp: number }>
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
 
-const withRetry = async <T>(fn: () => Promise<T>, retries = 5, delay = 5000): Promise<T> => {
+const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> => {
   try {
     return await fn();
   } catch (error: any) {
-    const isQuotaError = error?.message?.includes('429') || error?.status === 'RESOURCE_EXHAUSTED' || error?.message?.includes('quota');
-    const isTransientError = error?.message?.includes('500') || error?.message?.includes('Rpc failed') || error?.message?.includes('xhr error') || error?.message?.includes('fetch');
+    const errorString = error?.message || JSON.stringify(error) || '';
+    const isQuotaError = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota');
+    const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch');
     
     if ((isQuotaError || isTransientError) && retries > 0) {
       const errorType = isQuotaError ? 'Quota Exceeded' : 'Transient/RPC Error';
-      // Longer exponential backoff for quota errors
-      const currentDelay = isQuotaError ? delay * 3 : delay;
-      console.warn(`Gemini ${errorType} [${error?.message?.substring(0, 50)}...]. Retrying in ${currentDelay}ms... (${retries} retries left)`);
+      // Shorter exponential backoff for a better UI experience
+      const currentDelay = isQuotaError ? delay * 2 : delay;
+      console.warn(`Gemini Service ${errorType}. Retrying in ${currentDelay}ms... (${retries} retries left)`);
       await new Promise(resolve => setTimeout(resolve, currentDelay));
       return withRetry(fn, retries - 1, currentDelay * 1.5);
     }

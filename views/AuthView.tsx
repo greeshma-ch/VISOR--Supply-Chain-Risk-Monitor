@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ArrowRight, Building2, UserCircle, Key, Globe, ChevronDown } from 'lucide-react';
 import Logo from '../components/Logo';
 import { User, Role } from '../types';
+import { GLOBAL_HUBS, getCityCoords } from '../constants';
 
 interface AuthViewProps {
   onComplete: (user: User) => void;
@@ -15,21 +16,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
   const [selectedSector, setSelectedSector] = useState<string>('');
   const [hqLocation, setHqLocation] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const globalCities = [
-    "New York, USA", "London, UK", "Tokyo, Japan", "Paris, France", "Singapore", "Hong Kong", "Shanghai, China", "Dubai, UAE",
-    "Los Angeles, USA", "Chicago, USA", "Toronto, Canada", "Berlin, Germany", "Frankfurt, Germany", "Munich, Germany",
-    "Mumbai, India", "Bengaluru, India", "Singapore, Singapore", "Sydney, Australia", "Melbourne, Australia",
-    "Amsterdam, Netherlands", "Rotterdam, Netherlands", "Sao Paulo, Brazil", "Mexico City, Mexico",
-    "Seoul, South Korea", "Istanbul, Turkey", "Jakarta, Indonesia", "Bangkok, Thailand", "Kuala Lumpur, Malaysia",
-    "Madrid, Spain", "Barcelona, Spain", "Milan, Italy", "Rome, Italy", "Stockholm, Sweden", "Oslo, Norway",
-    "Copenhagen, Denmark", "Helsinki, Finland", "Warsaw, Poland", "Prague, Czech Republic", "Vienna, Austria",
-    "Zurich, Switzerland", "Geneva, Switzerland", "Dublin, Ireland", "Lisbon, Portugal", "Athens, Greece",
-    "Johannesburg, South Africa", "Cape Town, South Africa", "Nairobi, Kenya", "Cairo, Egypt", "Casablanca, Morocco",
-    "Tel Aviv, Israel", "Riyadh, Saudi Arabia", "Doha, Qatar", "Ho Chi Minh City, Vietnam", "Manila, Philippines",
-    "Taipei, Taiwan", "Auckland, New Zealand", "Vancouver, Canada", "Montreal, Canada", "Houston, USA", "Austin, USA",
-    "Seattle, USA", "Miami, USA", "Atlanta, USA", "Dallas, USA", "Boston, USA", "Washington D.C., USA"
-  ];
 
   const sectors = [
     'Logistics',
@@ -64,7 +50,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
       accessKey, 
       role: role as Role, 
       sectors: [selectedSector], 
-      hqLocation 
+      hqLocation,
+      hqCoordinates: getCityCoords(hqLocation)
     });
   };
 
@@ -125,8 +112,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-white placeholder:text-slate-700 text-sm"
               />
               <datalist id="global-cities">
-                {globalCities.map((city) => (
-                  <option key={city} value={city} />
+                {GLOBAL_HUBS.map((hub) => (
+                  <option key={hub.name} value={hub.name} />
                 ))}
               </datalist>
             </div>

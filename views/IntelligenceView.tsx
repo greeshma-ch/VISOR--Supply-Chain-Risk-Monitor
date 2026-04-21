@@ -65,9 +65,11 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
       setImpactLoading(true);
       setImpactError(false);
 
-      const [intelData, impactData] = await Promise.all([intelPromise, impactPromise]);
-      
+      const intelData = await intelPromise;
       setBrief(intelData);
+      setLoading(false);
+
+      const impactData = await impactPromise;
       setImpactAnalysis(impactData);
     } catch (err) {
       setError("Failed to generate intelligence brief. Check your API key and network connection.");

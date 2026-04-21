@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
-import { MOCK_SUPPLIERS } from '../constants';
-import { CATEGORIES } from '../constants';
+import { MOCK_SUPPLIERS, CATEGORIES, GLOBAL_HUBS, getCityCoords } from '../constants';
 import { Supplier, RiskStatus, User } from '../types';
 import RiskBadge from '../components/RiskBadge';
 import { Search, ChevronRight, MapPin, Mail, Filter, Plus, X, Building2, Globe, Tag, ChevronDown, Zap } from 'lucide-react';
@@ -19,38 +18,7 @@ interface RegistryViewProps {
   onAddSupplier: (supplier: Supplier) => void;
 }
 
-const GLOBAL_HUBS = [
-  { name: 'Tokyo, Japan', coords: [35.6762, 139.6503] },
-  { name: 'Shanghai, China', coords: [31.2304, 121.4737] },
-  { name: 'Berlin, Germany', coords: [52.5200, 13.4050] },
-  { name: 'San Francisco, USA', coords: [37.7749, -122.4194] },
-  { name: 'Singapore', coords: [1.3521, 103.8198] },
-  { name: 'Mumbai, India', coords: [19.0760, 72.8777] },
-  { name: 'London, UK', coords: [51.5074, -0.1278] },
-  { name: 'Seoul, South Korea', coords: [37.5665, 126.9780] },
-  { name: 'Sydney, Australia', coords: [-33.8688, 151.2093] },
-  { name: 'São Paulo, Brazil', coords: [-23.5505, -46.6333] },
-  { name: 'Dubai, UAE', coords: [25.2048, 55.2708] },
-  { name: 'Amsterdam, Netherlands', coords: [52.3676, 4.9041] },
-  { name: 'Toronto, Canada', coords: [43.6532, -79.3832] },
-  { name: 'Rotterdam, Netherlands', coords: [51.9225, 4.47917] },
-  { name: 'Ho Chi Minh City, Vietnam', coords: [10.8231, 106.6297] },
-  { name: 'Hsinchu, Taiwan', coords: [24.8138, 120.9675] },
-  { name: 'Bangalore, India', coords: [12.9716, 77.5946] },
-  { name: 'Munich, Germany', coords: [48.1351, 11.5820] },
-  { name: 'Chicago, USA', coords: [41.8781, -87.6298] },
-  { name: 'Paris, France', coords: [48.8566, 2.3522] },
-  { name: 'New York, USA', coords: [40.7128, -74.0060] },
-  { name: 'Hong Kong', coords: [22.3193, 114.1694] },
-  { name: 'Frankfurt, Germany', coords: [50.1109, 8.6821] },
-  { name: 'Melbourne, Australia', coords: [-37.8136, 144.9631] },
-  { name: 'Mexico City, Mexico', coords: [19.4326, -99.1332] },
-  { name: 'Istanbul, Turkey', coords: [41.0082, 28.9784] },
-  { name: 'Jakarta, Indonesia', coords: [-6.2088, 106.8456] },
-  { name: 'Madrid, Spain', coords: [40.4168, -3.7038] },
-  { name: 'Zurich, Switzerland', coords: [47.3769, 8.5417] },
-  { name: 'Johannesburg, South Africa', coords: [-26.2041, 28.0473] },
-];
+// GLOBAL_HUBS moved to constants.tsx
 
 const RegistryView: React.FC<RegistryViewProps> = ({ 
   user,
@@ -85,10 +53,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
     const formData = new FormData(e.currentTarget);
     
     const locationName = newSupplierLocation || formData.get('location') as string;
-    const matchedHub = GLOBAL_HUBS.find(h => h.name === locationName);
-    
-    // Default to San Francisco if no match (ensuring functionality doesn't break)
-    const coords = matchedHub ? matchedHub.coords : [37.7749, -122.4194];
+    const coords = getCityCoords(locationName);
     
     const newSupplier: Supplier = {
       id: `s${Date.now()}`,

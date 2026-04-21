@@ -222,6 +222,7 @@ const App: React.FC = () => {
             categoryFilter={categoryFilter}
             statusFilter={statusFilter}
             onSelectSupplier={navigateToSupplierIntelligence}
+            hqLocation={user.hqCoordinates || [37.7749, -122.4194]}
             disruptions={disruptions}
           />
         );

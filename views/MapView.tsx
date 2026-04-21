@@ -101,14 +101,25 @@ const darkMapStyle = [
   },
 ];
 
-const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilter, onSelectSupplier, hqLocation = [37.7749, -122.4194], disruptions = [] }) => {
+const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilter, onSelectSupplier, hqLocation, disruptions = [] }) => {
   const [hovered, setHovered] = useState<Supplier | null>(null);
   const [hoveredAlert, setHoveredAlert] = useState<Disruption | null>(null);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [activeLayer, setActiveLayer] = useState<'SATELLITE' | 'WEATHER'>('SATELLITE');
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [mapCenter, setMapCenter] = useState({ lat: hqLocation[0], lng: hqLocation[1] });
+  
+  // Use a fallback for hqLocation if not provided
+  const centerCoords = hqLocation || [37.7749, -122.4194];
+  
+  const [mapCenter, setMapCenter] = useState({ lat: centerCoords[0], lng: centerCoords[1] });
   const [mapZoom, setMapZoom] = useState(3);
+
+  // Sync map center when hqLocation changes
+  useEffect(() => {
+    if (hqLocation) {
+      setMapCenter({ lat: hqLocation[0], lng: hqLocation[1] });
+    }
+  }, [hqLocation?.[0], hqLocation?.[1]]);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -142,9 +153,9 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
   };
 
   const center = React.useMemo(() => ({
-    lat: hqLocation[0],
-    lng: hqLocation[1]
-  }), [hqLocation]);
+    lat: centerCoords[0],
+    lng: centerCoords[1]
+  }), [centerCoords[0], centerCoords[1]]);
 
   const mapOptions = React.useMemo(() => ({
     styles: darkMapStyle,
