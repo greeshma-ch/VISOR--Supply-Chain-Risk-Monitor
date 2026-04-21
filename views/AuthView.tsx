@@ -59,21 +59,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
       return;
     }
 
-    // Company Key Consistency Check
-    const storedKeys = JSON.parse(localStorage.getItem('vs_company_registry') || '{}');
-    const sanitizedCompany = company.trim().toLowerCase();
-
-    if (storedKeys[sanitizedCompany] && storedKeys[sanitizedCompany] !== accessKey) {
-      setError("Authorization denied. Historical key mismatch for this enterprise domain.");
-      return;
-    }
-
-    // Register company if new
-    if (!storedKeys[sanitizedCompany]) {
-      storedKeys[sanitizedCompany] = accessKey;
-      localStorage.setItem('vs_company_registry', JSON.stringify(storedKeys));
-    }
-
     onComplete({ 
       company, 
       accessKey, 
