@@ -41,11 +41,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
   ];
 
   const validateAccessKey = (key: string) => {
-    // Requirements: At least 12 chars, one uppercase, one number
-    const hasLength = key.length >= 12;
-    const hasUpper = /[A-Z]/.test(key);
-    const hasNumber = /[0-9]/.test(key);
-    return hasLength && hasUpper && hasNumber;
+    // Demo Mode: Allow any password-length string (e.g. 6+ chars)
+    return key.length >= 6;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -58,7 +55,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
     }
 
     if (!validateAccessKey(accessKey)) {
-      setError("Protocol mismatch. Access Key must be 12+ characters with at least one uppercase letter and one number.");
+      setError("Protocol mismatch. Access Key must be at least 6 characters for demo authorization.");
       return;
     }
 
@@ -123,7 +120,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
               required
               value={accessKey}
               onChange={(e) => setAccessKey(e.target.value)}
-              placeholder="••••••••••••"
+              placeholder="e.g. 12345678"
               className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-white text-sm"
             />
           </div>
