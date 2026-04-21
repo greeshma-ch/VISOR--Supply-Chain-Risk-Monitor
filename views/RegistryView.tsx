@@ -48,8 +48,29 @@ const RegistryView: React.FC<RegistryViewProps> = ({
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
+  const getPlanNodeLimit = (planName?: string) => {
+    switch (planName) {
+      case 'Business': return Infinity;
+      case 'Intermediate': return 100;
+      case 'Basic': return 20;
+      default: return 20;
+    }
+  };
+
+  const nodeLimit = getPlanNodeLimit(user.plan);
+  const isAtLimit = suppliers.length >= nodeLimit;
+
   const handleAddSupplier = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    if (isAtLimit) {
+      toast.error("Node Capacity Exceeded", {
+        description: `Your ${user.plan} tier is limited to ${nodeLimit} nodes. Upgrade for unlimited monitoring.`
+      });
+      setIsAddModalOpen(false);
+      return;
+    }
+    
     const formData = new FormData(e.currentTarget);
     
     const locationName = newSupplierLocation || formData.get('location') as string;
@@ -93,9 +114,24 @@ const RegistryView: React.FC<RegistryViewProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex-shrink-0">
           <h2 className="text-3xl font-black text-white tracking-tight uppercase">Network Registry</h2>
-          <p className="text-slate-500 font-medium mt-1 text-[10px] uppercase tracking-widest">
-            Monitoring {filteredSuppliers.length} active global partners.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
+            <p className="text-slate-500 font-medium text-[10px] uppercase tracking-widest whitespace-nowrap">
+              Monitoring {suppliers.length} active global partners.
+            </p>
+            {user.plan !== 'Business' && (
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${isAtLimit ? 'bg-rose-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.min(100, (suppliers.length / nodeLimit) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">
+                  {suppliers.length} / {nodeLimit} Nodes
+                </span>
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 w-full lg:w-auto overflow-x-auto lg:overflow-visible pb-2 lg:pb-0 no-scrollbar">

@@ -112,10 +112,10 @@ const App: React.FC = () => {
     // Dynamic refresh frequency based on tier
     const getRefreshInterval = () => {
       switch (user?.plan) {
-        case 'Business': return 120000; // 2 mins
-        case 'Intermediate': return 300000; // 5 mins
-        case 'Basic': return 600000; // 10 mins
-        default: return 600000;
+        case 'Business': return 120000;      // 2 mins (Real-time threshold)
+        case 'Intermediate': return 21600000; // 6 hours
+        case 'Basic': return 86400000;        // 24 hours
+        default: return 86400000;
       }
     };
 
@@ -170,6 +170,14 @@ const App: React.FC = () => {
   };
 
   const handleAddSupplier = (newSupplier: Supplier) => {
+    const limit = getPlanNodeLimit(user?.plan);
+    if (suppliers.length >= limit) {
+      toast.error("Node Capacity Exceeded", {
+        description: `Operational limit (${limit} nodes) reached for your current tier.`
+      });
+      return;
+    }
+    
     setSuppliers(prev => [newSupplier, ...prev]);
     toast.success("Supplier Integrated", {
       description: `${newSupplier.name} has been added to the global registry and map analytics.`

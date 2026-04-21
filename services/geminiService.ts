@@ -18,15 +18,21 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
   } catch (error: any) {
     const errorString = error?.message || JSON.stringify(error) || '';
     const isQuotaError = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota');
+    const isServiceUnavailable = errorString.includes('503') || errorString.includes('high demand') || errorString.includes('UNAVAILABLE');
     const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch');
     
-    if ((isQuotaError || isTransientError) && retries > 0) {
-      const errorType = isQuotaError ? 'Quota Exceeded' : 'Transient/RPC Error';
-      // Shorter exponential backoff for a better UI experience
-      const currentDelay = isQuotaError ? delay * 2 : delay;
-      console.warn(`Gemini Service ${errorType}. Retrying in ${currentDelay}ms... (${retries} retries left)`);
+    if ((isQuotaError || isTransientError || isServiceUnavailable) && retries > 0) {
+      let errorType = 'Transient/RPC Error';
+      if (isQuotaError) errorType = 'Quota Exceeded';
+      if (isServiceUnavailable) errorType = 'High Demand (503)';
+
+      // Jittered backoff for better recovery
+      const jitter = Math.random() * 500;
+      const currentDelay = (isQuotaError || isServiceUnavailable) ? (delay * 2) + jitter : delay + jitter;
+      
+      console.warn(`Gemini Service ${errorType}. Retrying in ${Math.round(currentDelay)}ms... (${retries} retries left)`);
       await new Promise(resolve => setTimeout(resolve, currentDelay));
-      return withRetry(fn, retries - 1, currentDelay * 1.5);
+      return withRetry(fn, retries - 1, (delay * 1.5) + jitter);
     }
     throw error;
   }

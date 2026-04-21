@@ -60,17 +60,24 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
       setWeather(weatherData);
 
       const intelPromise = generateSupplierIntelligence(supplier, weatherData, !!isSimulated);
-      const impactPromise = generateImpactAnalysis(supplier, !!isSimulated);
-
-      setImpactLoading(true);
+      
+      // Impact analysis is limited for Basic
+      let impactPromise = Promise.resolve(null);
+      if (user.plan === 'Intermediate' || user.plan === 'Business') {
+        impactPromise = generateImpactAnalysis(supplier, !!isSimulated);
+        setImpactLoading(true);
+      }
+      
       setImpactError(false);
 
       const intelData = await intelPromise;
       setBrief(intelData);
       setLoading(false);
 
-      const impactData = await impactPromise;
-      setImpactAnalysis(impactData);
+      if (user.plan === 'Intermediate' || user.plan === 'Business') {
+        const impactData = await impactPromise;
+        setImpactAnalysis(impactData);
+      }
     } catch (err) {
       setError("Failed to generate intelligence brief. Check your API key and network connection.");
     } finally {
@@ -199,57 +206,76 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
           </div>
         )}
         
-        <button 
-          onClick={() => setIsImpactExpanded(!isImpactExpanded)}
-          className="text-blue-400 text-xs font-black uppercase tracking-widest hover:text-blue-300 transition-colors flex items-center gap-2"
-        >
-          {isImpactExpanded ? 'Hide' : 'View'} AI Impact Analysis
-        </button>
-        
-        {isImpactExpanded && (
-          <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
-            {impactLoading ? (
-              <div className="flex items-center gap-3 text-slate-500 text-xs italic py-4">
-                <RefreshCw size={14} className="animate-spin" /> Calculating impact vectors...
+        {(user.plan === 'Intermediate' || user.plan === 'Business') ? (
+          <>
+            <button 
+              onClick={() => setIsImpactExpanded(!isImpactExpanded)}
+              className="text-blue-400 text-xs font-black uppercase tracking-widest hover:text-blue-300 transition-colors flex items-center gap-2"
+            >
+              {isImpactExpanded ? 'Hide' : 'View'} AI Impact Analysis
+            </button>
+            
+            {isImpactExpanded && (
+              <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                {impactLoading ? (
+                  <div className="flex items-center gap-3 text-slate-500 text-xs italic py-4">
+                    <RefreshCw size={14} className="animate-spin" /> Calculating impact vectors...
+                  </div>
+                ) : impactError ? (
+                  <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-xl text-rose-500 text-xs font-medium">
+                    Failed to generate impact analysis. Please retry.
+                  </div>
+                ) : impactAnalysis ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Bottleneck</p>
+                      <p className="text-sm font-bold text-white">{impactAnalysis.bottleneck}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Est. Delay</p>
+                      <p className="text-sm font-bold text-white">{impactAnalysis.estDelay}</p>
+                    </div>
+                    <div className="space-y-1 relative">
+                      {user.plan === 'Intermediate' && (
+                        <div className="absolute inset-0 z-10 bg-black/60 backdrop-blur-[2px] flex items-center justify-center rounded-lg">
+                          <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest bg-black px-2 py-1 rounded border border-blue-500/30">Business Only</span>
+                        </div>
+                      )}
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Strategic Action</p>
+                      <p className="text-sm font-bold text-white">{impactAnalysis.strategicAction}</p>
+                    </div>
+                    <div className="sm:col-span-3 pt-4 border-t border-white/5 relative">
+                      {user.plan === 'Intermediate' && (
+                        <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
+                          <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest bg-[#0a0f1c] px-3 py-1 rounded-full border border-blue-500/30">Business Tier Upgrade Required</span>
+                        </div>
+                      )}
+                      <button 
+                        onClick={() => {
+                          console.log('Mitigation Executed');
+                          setMitigationSuccess(true);
+                          toast.success("Mitigation Protocol Executed", {
+                            description: "Strategic actions have been dispatched to regional logistics teams."
+                          });
+                        }}
+                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                          mitigationSuccess 
+                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
+                            : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
+                        }`}
+                      >
+                        {mitigationSuccess ? 'Success' : 'Execute Mitigation'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ) : impactError ? (
-              <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-xl text-rose-500 text-xs font-medium">
-                Failed to generate impact analysis. Please retry.
-              </div>
-            ) : impactAnalysis ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Bottleneck</p>
-                  <p className="text-sm font-bold text-white">{impactAnalysis.bottleneck}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Est. Delay</p>
-                  <p className="text-sm font-bold text-white">{impactAnalysis.estDelay}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Strategic Action</p>
-                  <p className="text-sm font-bold text-white">{impactAnalysis.strategicAction}</p>
-                </div>
-                <div className="sm:col-span-3 pt-4 border-t border-white/5">
-                  <button 
-                    onClick={() => {
-                      console.log('Mitigation Executed');
-                      setMitigationSuccess(true);
-                      toast.success("Mitigation Protocol Executed", {
-                        description: "Strategic actions have been dispatched to regional logistics teams."
-                      });
-                    }}
-                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      mitigationSuccess 
-                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
-                        : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
-                    }`}
-                  >
-                    {mitigationSuccess ? 'Success' : 'Execute Mitigation'}
-                  </button>
-                </div>
-              </div>
-            ) : null}
+            )}
+          </>
+        ) : (
+          <div className="flex items-center gap-3 py-2">
+            <Lock size={12} className="text-slate-600" />
+            <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Impact Analysis: Unauthorized (Upgrade Required)</p>
           </div>
         )}
       </div>
@@ -257,7 +283,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         <div className="lg:col-span-2 space-y-6 sm:space-y-8">
           <section className="bg-[#0a0f1c] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-sm relative overflow-hidden">
-            {user.plan === 'Basic' && (
+            {(!user.plan || user.plan === 'Basic') && (
               <div className="absolute inset-0 z-10 bg-[#0a0f1c]/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
                 <Lock className="text-blue-500 mb-4" size={32} />
                 <h4 className="text-white font-bold mb-2">AI Insights Locked</h4>
@@ -434,7 +460,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
               <Users size={18} className="text-slate-500" /> Alternative Nodes
             </h3>
             <div className="space-y-2 relative">
-              {(user.plan === 'Basic' || user.plan === 'Intermediate') && (
+              {(!user.plan || user.plan === 'Basic' || user.plan === 'Intermediate') && (
                 <div className="absolute inset-0 z-10 bg-[#0a0f1c]/60 backdrop-blur-[2px] flex items-center justify-center rounded-3xl">
                   <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest bg-[#0a0f1c] px-3 py-1 rounded-full border border-blue-500/30">Business Tier Only</span>
                 </div>

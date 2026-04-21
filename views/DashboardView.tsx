@@ -168,7 +168,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-10">
         <div className="xl:col-span-2 bg-[#080c18] p-6 sm:p-10 rounded-[2.5rem] border border-white/5 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[500px] sm:min-h-[600px]">
-          {user.plan === 'Basic' && (
+          {(!user.plan || user.plan === 'Basic') && (
             <div className="absolute top-6 right-6 z-10">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
                 <Lock size={12} className="text-slate-500" />
