@@ -13,8 +13,23 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
   const [accessKey, setAccessKey] = useState('');
   const [role, setRole] = useState<Role>('Analyst');
   const [selectedSector, setSelectedSector] = useState<string>('Logistics');
-  const [hqLocation, setHqLocation] = useState('USA, San Francisco');
+  const [hqLocation, setHqLocation] = useState('San Francisco, USA');
   const [error, setError] = useState<string | null>(null);
+
+  const globalCities = [
+    "New York, USA", "London, UK", "Tokyo, Japan", "Paris, France", "Singapore", "Hong Kong", "Shanghai, China", "Dubai, UAE",
+    "Los Angeles, USA", "Chicago, USA", "Toronto, Canada", "Berlin, Germany", "Frankfurt, Germany", "Munich, Germany",
+    "Mumbai, India", "Bengaluru, India", "Singapore, Singapore", "Sydney, Australia", "Melbourne, Australia",
+    "Amsterdam, Netherlands", "Rotterdam, Netherlands", "Sao Paulo, Brazil", "Mexico City, Mexico",
+    "Seoul, South Korea", "Istanbul, Turkey", "Jakarta, Indonesia", "Bangkok, Thailand", "Kuala Lumpur, Malaysia",
+    "Madrid, Spain", "Barcelona, Spain", "Milan, Italy", "Rome, Italy", "Stockholm, Sweden", "Oslo, Norway",
+    "Copenhagen, Denmark", "Helsinki, Finland", "Warsaw, Poland", "Prague, Czech Republic", "Vienna, Austria",
+    "Zurich, Switzerland", "Geneva, Switzerland", "Dublin, Ireland", "Lisbon, Portugal", "Athens, Greece",
+    "Johannesburg, South Africa", "Cape Town, South Africa", "Nairobi, Kenya", "Cairo, Egypt", "Casablanca, Morocco",
+    "Tel Aviv, Israel", "Riyadh, Saudi Arabia", "Doha, Qatar", "Ho Chi Minh City, Vietnam", "Manila, Philippines",
+    "Taipei, Taiwan", "Auckland, New Zealand", "Vancouver, Canada", "Montreal, Canada", "Houston, USA", "Austin, USA",
+    "Seattle, USA", "Miami, USA", "Atlanta, USA", "Dallas, USA", "Boston, USA", "Washington D.C., USA"
+  ];
 
   const sectors = [
     'Logistics',
@@ -112,20 +127,20 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
               <Globe size={14} /> Global Headquarters
             </label>
             <div className="relative">
-              <select
+              <input
+                list="global-cities"
+                type="text"
+                required
                 value={hqLocation}
                 onChange={(e) => setHqLocation(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none text-white text-sm cursor-pointer"
-              >
-                <option value="USA, San Francisco" className="bg-[#0a0f1c]">San Francisco, USA</option>
-                <option value="Japan, Tokyo" className="bg-[#0a0f1c]">Tokyo, Japan</option>
-                <option value="Germany, Munich" className="bg-[#0a0f1c]">Munich, Germany</option>
-                <option value="Singapore, Singapore" className="bg-[#0a0f1c]">Singapore</option>
-                <option value="Netherlands, Rotterdam" className="bg-[#0a0f1c]">Rotterdam, NL</option>
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <ChevronDown size={14} />
-              </div>
+                placeholder="Search or enter city..."
+                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-white placeholder:text-slate-700 text-sm"
+              />
+              <datalist id="global-cities">
+                {globalCities.map((city) => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
             </div>
           </div>
 

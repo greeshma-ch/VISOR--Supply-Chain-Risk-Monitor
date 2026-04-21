@@ -19,26 +19,37 @@ interface RegistryViewProps {
   onAddSupplier: (supplier: Supplier) => void;
 }
 
-const REGIONS = [
-  { city: 'Tokyo', state: 'Tokyo', country: 'Japan', coords: [35.6762, 139.6503] },
-  { city: 'Shanghai', state: 'Shanghai', country: 'China', coords: [31.2304, 121.4737] },
-  { city: 'Berlin', state: 'Berlin', country: 'Germany', coords: [52.5200, 13.4050] },
-  { city: 'San Francisco', state: 'California', country: 'USA', coords: [37.7749, -122.4194] },
-  { city: 'Singapore', state: 'Singapore', country: 'Singapore', coords: [1.3521, 103.8198] },
-  { city: 'Mumbai', state: 'Maharashtra', country: 'India', coords: [19.0760, 72.8777] },
-  { city: 'London', state: 'England', country: 'UK', coords: [51.5074, -0.1278] },
-  { city: 'Seoul', state: 'Seoul', country: 'South Korea', coords: [37.5665, 126.9780] },
-  { city: 'Sydney', state: 'New South Wales', country: 'Australia', coords: [-33.8688, 151.2093] },
-  { city: 'São Paulo', state: 'São Paulo', country: 'Brazil', coords: [-23.5505, -46.6333] },
-  { city: 'Dubai', state: 'Dubai', country: 'UAE', coords: [25.2048, 55.2708] },
-  { city: 'Amsterdam', state: 'North Holland', country: 'Netherlands', coords: [52.3676, 4.9041] },
-  { city: 'Toronto', state: 'Ontario', country: 'Canada', coords: [43.6532, -79.3832] },
-  { city: 'Rotterdam', state: 'South Holland', country: 'Netherlands', coords: [51.9225, 4.47917] },
-  { city: 'Ho Chi Minh City', state: 'Ho Chi Minh', country: 'Vietnam', coords: [10.8231, 106.6297] },
-  { city: 'Hsinchu', state: 'Hsinchu', country: 'Taiwan', coords: [24.8138, 120.9675] },
-  { city: 'Bangalore', state: 'Karnataka', country: 'India', coords: [12.9716, 77.5946] },
-  { city: 'Munich', state: 'Bavaria', country: 'Germany', coords: [48.1351, 11.5820] },
-  { city: 'Chicago', state: 'Illinois', country: 'USA', coords: [41.8781, -87.6298] },
+const GLOBAL_HUBS = [
+  { name: 'Tokyo, Japan', coords: [35.6762, 139.6503] },
+  { name: 'Shanghai, China', coords: [31.2304, 121.4737] },
+  { name: 'Berlin, Germany', coords: [52.5200, 13.4050] },
+  { name: 'San Francisco, USA', coords: [37.7749, -122.4194] },
+  { name: 'Singapore', coords: [1.3521, 103.8198] },
+  { name: 'Mumbai, India', coords: [19.0760, 72.8777] },
+  { name: 'London, UK', coords: [51.5074, -0.1278] },
+  { name: 'Seoul, South Korea', coords: [37.5665, 126.9780] },
+  { name: 'Sydney, Australia', coords: [-33.8688, 151.2093] },
+  { name: 'São Paulo, Brazil', coords: [-23.5505, -46.6333] },
+  { name: 'Dubai, UAE', coords: [25.2048, 55.2708] },
+  { name: 'Amsterdam, Netherlands', coords: [52.3676, 4.9041] },
+  { name: 'Toronto, Canada', coords: [43.6532, -79.3832] },
+  { name: 'Rotterdam, Netherlands', coords: [51.9225, 4.47917] },
+  { name: 'Ho Chi Minh City, Vietnam', coords: [10.8231, 106.6297] },
+  { name: 'Hsinchu, Taiwan', coords: [24.8138, 120.9675] },
+  { name: 'Bangalore, India', coords: [12.9716, 77.5946] },
+  { name: 'Munich, Germany', coords: [48.1351, 11.5820] },
+  { name: 'Chicago, USA', coords: [41.8781, -87.6298] },
+  { name: 'Paris, France', coords: [48.8566, 2.3522] },
+  { name: 'New York, USA', coords: [40.7128, -74.0060] },
+  { name: 'Hong Kong', coords: [22.3193, 114.1694] },
+  { name: 'Frankfurt, Germany', coords: [50.1109, 8.6821] },
+  { name: 'Melbourne, Australia', coords: [-37.8136, 144.9631] },
+  { name: 'Mexico City, Mexico', coords: [19.4326, -99.1332] },
+  { name: 'Istanbul, Turkey', coords: [41.0082, 28.9784] },
+  { name: 'Jakarta, Indonesia', coords: [-6.2088, 106.8456] },
+  { name: 'Madrid, Spain', coords: [40.4168, -3.7038] },
+  { name: 'Zurich, Switzerland', coords: [47.3769, 8.5417] },
+  { name: 'Johannesburg, South Africa', coords: [-26.2041, 28.0473] },
 ];
 
 const RegistryView: React.FC<RegistryViewProps> = ({ 
@@ -56,6 +67,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddSectorOpen, setIsAddSectorOpen] = useState(false);
+  const [newSupplierLocation, setNewSupplierLocation] = useState('');
 
   const sectors = user.sectors || ['Logistics'];
 
@@ -71,14 +83,18 @@ const RegistryView: React.FC<RegistryViewProps> = ({
   const handleAddSupplier = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const regionIndex = parseInt(formData.get('region') as string);
-    const region = REGIONS[regionIndex];
+    
+    const locationName = newSupplierLocation || formData.get('location') as string;
+    const matchedHub = GLOBAL_HUBS.find(h => h.name === locationName);
+    
+    // Default to San Francisco if no match (ensuring functionality doesn't break)
+    const coords = matchedHub ? matchedHub.coords : [37.7749, -122.4194];
     
     const newSupplier: Supplier = {
       id: `s${Date.now()}`,
       name: formData.get('name') as string,
-      location: `${region.city}, ${region.country}`,
-      coordinates: region.coords as [number, number],
+      location: locationName,
+      coordinates: coords as [number, number],
       status: RiskStatus.STABLE,
       category: formData.get('category') as string,
       contactEmail: formData.get('email') as string,
@@ -87,6 +103,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
 
     onAddSupplier(newSupplier);
     setIsAddModalOpen(false);
+    setNewSupplierLocation('');
   };
 
   const handleAddSector = (sector: string) => {
@@ -351,17 +368,20 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                     <Globe size={16} /> Region
                   </label>
                   <div className="relative">
-                    <select required name="region" defaultValue="" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none cursor-pointer text-xs">
-                      <option value="" disabled className="bg-[#0a0f1c]">Select Region</option>
-                      {REGIONS.map((r, i) => (
-                        <option key={i} value={i} className="bg-[#0a0f1c]">
-                          {r.city}, {r.state}, {r.country}
-                        </option>
+                    <input 
+                      list="registry-hubs"
+                      required 
+                      name="location"
+                      value={newSupplierLocation}
+                      onChange={(e) => setNewSupplierLocation(e.target.value)}
+                      placeholder="Search global hub..." 
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all text-xs" 
+                    />
+                    <datalist id="registry-hubs">
+                      {GLOBAL_HUBS.map((h, i) => (
+                        <option key={i} value={h.name} />
                       ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                      <ChevronRight size={14} className="rotate-90" />
-                    </div>
+                    </datalist>
                   </div>
                 </div>
                 <div className="space-y-2">
