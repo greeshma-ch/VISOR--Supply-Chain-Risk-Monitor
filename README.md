@@ -1,6 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
 🚀 VISOR – AI Supply Chain Risk Monitor
 
@@ -103,13 +100,18 @@ gcloud run deploy visor --source . --region us-west1
 This project was developed as a capstone submission for the BUILD the Future Showcase under Startup School (Google initiative), focusing on rapid prototyping of AI-powered applications.
 
 ---
-## 💡 Future Improvements
-* Predictive risk modeling using historical trends
-* Supplier scoring dashboards with analytics
-* Multi-region deployment for lower latency
-* Alert integrations (email/SMS/webhooks)
+## 📸 Application Preview
 
----
+<div align="center">
+![VISOR Dashboard]<img width="1919" height="1056" alt="dashboard" src="https://github.com/user-attachments/assets/8adf969b-7366-4a25-bbe1-374ba79ebd0c" />
+
+![Risk Analysis view]<img width="1920" height="1200" alt="Risk Intelligence Briefing" src="https://github.com/user-attachments/assets/95b5c8aa-1a86-4ade-b9bb-400b9f7c9414" />
+
+![Map Analytics]<img width="1920" height="1128" alt="Map Anlaytics" src="https://github.com/user-attachments/assets/4ecd94c9-271d-473a-bf02-64de6677fdf5" />
+
+</div>
+
+----
 ## 🧠 Key Takeaways
 * Built an end-to-end AI system combining LLMs, real-time data, and cloud infrastructure
 * Designed for scalability, interpretability, and real-world applicability
