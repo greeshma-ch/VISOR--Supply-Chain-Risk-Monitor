@@ -11,9 +11,9 @@ interface AuthViewProps {
 const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
   const [company, setCompany] = useState('');
   const [accessKey, setAccessKey] = useState('');
-  const [role, setRole] = useState<Role>('Analyst');
-  const [selectedSector, setSelectedSector] = useState<string>('Logistics');
-  const [hqLocation, setHqLocation] = useState('San Francisco, USA');
+  const [role, setRole] = useState<Role | ''>('');
+  const [selectedSector, setSelectedSector] = useState<string>('');
+  const [hqLocation, setHqLocation] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const globalCities = [
@@ -52,8 +52,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
     e.preventDefault();
     setError(null);
 
-    if (!company.trim() || !accessKey.trim()) {
-      setError("Strategic parameters incomplete. All fields required.");
+    if (!company.trim() || !accessKey.trim() || !role || !selectedSector || !hqLocation.trim()) {
+      setError("Strategic parameters incomplete. All fields are required for initialization.");
       return;
     }
 
@@ -77,7 +77,13 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
       localStorage.setItem('vs_company_registry', JSON.stringify(storedKeys));
     }
 
-    onComplete({ company, accessKey, role, sectors: [selectedSector], hqLocation });
+    onComplete({ 
+      company, 
+      accessKey, 
+      role: role as Role, 
+      sectors: [selectedSector], 
+      hqLocation 
+    });
   };
 
   return (
@@ -152,8 +158,10 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
               <select
                 value={selectedSector}
                 onChange={(e) => setSelectedSector(e.target.value)}
+                required
                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none text-white text-sm cursor-pointer"
               >
+                <option value="" disabled className="bg-[#0a0f1c] text-slate-500">Select Sector...</option>
                 {sectors.map((s) => (
                   <option key={s} value={s} className="bg-[#0a0f1c]">{s}</option>
                 ))}
@@ -172,8 +180,10 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
+                required
                 className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none text-white text-sm cursor-pointer"
               >
+                <option value="" disabled className="bg-[#0a0f1c] text-slate-500">Select Role...</option>
                 <option value="Admin" className="bg-[#0a0f1c]">Administrator</option>
                 <option value="Manager" className="bg-[#0a0f1c]">Operations Manager</option>
                 <option value="Analyst" className="bg-[#0a0f1c]">Supply Chain Analyst</option>
