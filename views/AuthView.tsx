@@ -51,7 +51,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
       role: role as Role, 
       sectors: [selectedSector], 
       hqLocation,
-      hqCoordinates: getCityCoords(hqLocation)
+      hqCoordinates: getCityCoords(hqLocation),
+      plan: 'Business'
     });
   };
 

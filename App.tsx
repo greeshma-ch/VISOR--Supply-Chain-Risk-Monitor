@@ -49,6 +49,8 @@ const App: React.FC = () => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (!parsed.sectors) parsed.sectors = ['Logistics'];
+      // Ensure Business tier for demo
+      if (parsed.plan !== 'Business') parsed.plan = 'Business';
       return parsed;
     }
     return null;
