@@ -52,51 +52,53 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
     return Cloud;
   };
 
-  const relevantSuppliers = suppliers.filter(s => categoryFilter === 'ALL' || s.category === categoryFilter);
+  const finalFeed = React.useMemo(() => {
+    const relevantSuppliers = suppliers.filter(s => categoryFilter === 'ALL' || s.category === categoryFilter);
 
-  const regionMatch = (s: Supplier, d: Disruption) => {
-    if (!d.location) return false;
-    const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
-    const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
-    return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
-  };
-
-  const finalFeed = relevantSuppliers.map(s => {
-    // Find most severe disruption matching this supplier
-    const matchingDisruptions = disruptions.filter(d => {
-      const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
-      return (isDirectlyImpacted || regionMatch(s, d)) && (categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather');
-    });
-
-    if (matchingDisruptions.length > 0) {
-      // Pick highest severity
-      const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
-      return matchingDisruptions.reduce((prev, curr) => {
-        const pVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
-        const cVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
-        return cVal > pVal ? curr : prev;
-      });
-    }
-
-    // Generate stability signal if no disruptions
-    return {
-      id: `stable-${s.id}`,
-      title: `Node Operational: ${s.name}`,
-      type: 'Logistics' as const,
-      severity: 'Low' as const,
-      location: s.location,
-      timestamp: s.lastUpdated || new Date().toISOString(),
-      summary: `AI Intelligence confirms nominal operational heartbeat for ${s.name}. Regional telemetry and logistics pipelines are functioning within established performance benchmarks.`,
-      impactedSuppliers: [s.id],
-      verificationStatus: 'verified' as const
+    const regionMatch = (s: Supplier, d: Disruption) => {
+      if (!d.location) return false;
+      const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
+      const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
+      return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
     };
-  }).sort((a, b) => {
-    const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
-    const sA = severityMap[a.severity as keyof typeof severityMap] || 0;
-    const sB = severityMap[b.severity as keyof typeof severityMap] || 0;
-    if (sA !== sB) return sB - sA;
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-  });
+
+    return relevantSuppliers.map(s => {
+      // Find most severe disruption matching this supplier
+      const matchingDisruptions = disruptions.filter(d => {
+        const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
+        return (isDirectlyImpacted || regionMatch(s, d)) && (categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather');
+      });
+
+      if (matchingDisruptions.length > 0) {
+        // Pick highest severity
+        const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
+        return matchingDisruptions.reduce((prev, curr) => {
+          const pVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
+          const cVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
+          return cVal > pVal ? curr : prev;
+        });
+      }
+
+      // Generate stability signal if no disruptions
+      return {
+        id: `stable-${s.id}`,
+        title: `Node Operational: ${s.name}`,
+        type: 'Logistics' as const,
+        severity: 'Low' as const,
+        location: s.location,
+        timestamp: s.lastUpdated || new Date().toISOString(),
+        summary: `AI Intelligence confirms nominal operational heartbeat for ${s.name}. Regional telemetry and logistics pipelines are functioning within established performance benchmarks.`,
+        impactedSuppliers: [s.id],
+        verificationStatus: 'verified' as const
+      };
+    }).sort((a, b) => {
+      const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
+      const sA = severityMap[a.severity as keyof typeof severityMap] || 0;
+      const sB = severityMap[b.severity as keyof typeof severityMap] || 0;
+      if (sA !== sB) return sB - sA;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  }, [suppliers, disruptions, categoryFilter]);
 
   const handleAccessArchival = () => {
     toast.info("Establishing encrypted handshake with VISOR Archival Vault... Accessing historical logistics metadata (2018-2023).");

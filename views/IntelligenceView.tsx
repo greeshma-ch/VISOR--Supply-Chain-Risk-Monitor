@@ -62,34 +62,40 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({
   const [impactLoading, setImpactLoading] = useState(false);
   const [impactError, setImpactError] = useState(false);
 
-  // Filter relevant disruptions for grounding
-  const relevantDisruptions = disruptions.filter(d => 
-    d.impactedSuppliers.includes(supplier.id) || 
-    d.impactedSuppliers.includes(supplier.name) ||
-    (d.location && supplier.location.toLowerCase().includes(d.location.toLowerCase()))
+  // Filter relevant disruptions for grounding - memoized for performance
+  const relevantDisruptions = React.useMemo(() => 
+    disruptions.filter(d => 
+      d.impactedSuppliers.includes(supplier.id) || 
+      d.impactedSuppliers.includes(supplier.name) ||
+      (d.location && supplier.location.toLowerCase().includes(d.location.toLowerCase()))
+    ), [disruptions, supplier.id, supplier.name, supplier.location]
   );
 
-  // Background Fetching
+  // Background Fetching - optimized with parallel execution
   const fetchIntelligence = async () => {
     setLoading(true);
     setImpactLoading(true);
     setError(null);
     try {
-      const weatherPromise = fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
-      const [weatherData] = await Promise.all([weatherPromise]);
+      // Start independent impact analysis immediately
+      const impactPromise = generateImpactAnalysis(supplier, !!isSimulated);
+      
+      // Start weather fetch
+      const weatherData = await fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
       setWeather(weatherData);
 
+      // Start intelligence brief generation (requires weatherData)
       const intelPromise = generateSupplierIntelligence(supplier, weatherData, !!isSimulated, relevantDisruptions);
-      
-      const impactPromise = generateImpactAnalysis(supplier, !!isSimulated);
       
       setImpactError(false);
 
-      const intelData = await intelPromise;
-      setBrief(intelData);
-      setLoading(false);
+      // Await both intelligence and impact analysis
+      const [intelData, impactData] = await Promise.all([
+        intelPromise,
+        impactPromise
+      ]);
 
-      const impactData = await impactPromise;
+      setBrief(intelData);
       setImpactAnalysis(impactData);
     } catch (err) {
       if (!brief) setError("Failed to generate intelligence brief. Check your API key and network connection.");

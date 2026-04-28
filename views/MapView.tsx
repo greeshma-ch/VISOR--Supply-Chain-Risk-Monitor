@@ -130,19 +130,34 @@ const MapView: React.FC<MapViewProps> = ({ suppliers, categoryFilter, statusFilt
     setMap(null);
   }, []);
 
-  const filteredSuppliers = suppliers.filter(s => {
+  const filteredSuppliers = React.useMemo(() => suppliers.filter(s => {
     const matchesCategory = categoryFilter === 'ALL' || s.category === categoryFilter;
     const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
     return matchesCategory && matchesStatus;
-  });
+  }), [suppliers, categoryFilter, statusFilter]);
 
-  const weatherAlerts = disruptions.filter(d => d.type === 'Weather');
+  const weatherAlerts = React.useMemo(() => disruptions.filter(d => d.type === 'Weather'), [disruptions]);
 
-  const chartData = [
-    { name: 'Stable', value: Math.round((suppliers.filter(s => s.status === RiskStatus.STABLE).length / suppliers.length) * 100), color: '#10b981' },
-    { name: 'Caution', value: Math.round((suppliers.filter(s => s.status === RiskStatus.CAUTION).length / suppliers.length) * 100), color: '#f59e0b' },
-    { name: 'Risky', value: Math.round((suppliers.filter(s => s.status === RiskStatus.RISKY).length / suppliers.length) * 100), color: '#f43f5e' },
-  ];
+  const chartData = React.useMemo(() => {
+    if (suppliers.length === 0) return [];
+    
+    let stable = 0;
+    let caution = 0;
+    let risky = 0;
+    
+    suppliers.forEach(s => {
+      if (s.status === RiskStatus.STABLE) stable++;
+      else if (s.status === RiskStatus.CAUTION) caution++;
+      else if (s.status === RiskStatus.RISKY) risky++;
+    });
+
+    const total = suppliers.length;
+    return [
+      { name: 'Stable', value: Math.round((stable / total) * 100), color: '#10b981' },
+      { name: 'Caution', value: Math.round((caution / total) * 100), color: '#f59e0b' },
+      { name: 'Risky', value: Math.round((risky / total) * 100), color: '#f43f5e' },
+    ];
+  }, [suppliers]);
 
   const getWeatherIcon = (title: string) => {
     const t = title.toLowerCase();

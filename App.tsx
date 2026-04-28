@@ -80,39 +80,53 @@ const App: React.FC = () => {
   const [resourceContext, setResourceContext] = useState<{ title: string; sources: { title: string; uri: string }[] } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const activeSuppliers = React.useMemo(() => suppliers.map(s => {
-    // Priority 1: Simulation
-    if (simulatedRiskyNodes.includes(s.id)) {
-      return { ...s, status: RiskStatus.RISKY };
-    }
+  const activeSuppliers = React.useMemo(() => {
+    // Optimization: Create a map for faster lookup if disruptions are numerous
+    const supplierImpactMap = new Map<string, Disruption[]>();
+    
+    disruptions.forEach(d => {
+      suppliers.forEach(s => {
+        const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
+        let isRegionImpacted = false;
+        
+        if (!isDirectlyImpacted && d.location) {
+          const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
+          const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
+          isRegionImpacted = supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+        }
 
-    // Priority 2: Real-time disruptions from feed
-    const relevantDisruptions = disruptions.filter(d => {
-      const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
-      if (isDirectlyImpacted) return true;
-
-      // Deep region matching consistent with FeedView
-      if (!d.location) return false;
-      const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
-      const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
-      return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+        if (isDirectlyImpacted || isRegionImpacted) {
+          const current = supplierImpactMap.get(s.id) || [];
+          current.push(d);
+          supplierImpactMap.set(s.id, current);
+        }
+      });
     });
 
-    if (relevantDisruptions.length > 0) {
-      const highestSeverityObj = relevantDisruptions.reduce((prev, curr) => {
+    return suppliers.map(s => {
+      // Priority 1: Simulation
+      if (simulatedRiskyNodes.includes(s.id)) {
+        return { ...s, status: RiskStatus.RISKY };
+      }
+
+      // Priority 2: Real-time disruptions from pre-calculated map
+      const relevantDisruptions = supplierImpactMap.get(s.id) || [];
+
+      if (relevantDisruptions.length > 0) {
         const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
-        const currVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
-        const prevVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
-        return currVal > prevVal ? curr : prev;
-      });
+        const highestSeverityObj = relevantDisruptions.reduce((prev, curr) => {
+          const currVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
+          const prevVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
+          return currVal > prevVal ? curr : prev;
+        });
 
-      if (highestSeverityObj.severity === 'High') return { ...s, status: RiskStatus.RISKY };
-      if (highestSeverityObj.severity === 'Medium') return { ...s, status: RiskStatus.CAUTION };
+        if (highestSeverityObj.severity === 'High') return { ...s, status: RiskStatus.RISKY };
+        if (highestSeverityObj.severity === 'Medium') return { ...s, status: RiskStatus.CAUTION };
+      }
+
       return { ...s, status: RiskStatus.STABLE };
-    }
-
-    return { ...s, status: RiskStatus.STABLE };
-  }), [suppliers, simulatedRiskyNodes, disruptions]);
+    });
+  }, [suppliers, simulatedRiskyNodes, disruptions]);
 
   const isInitialMount = React.useRef(true);
 
@@ -120,8 +134,10 @@ const App: React.FC = () => {
     if (isRefreshing || !user) return;
     setIsRefreshing(true);
     try {
-      const dynamicDisruptions = await generateGlobalRiskSignals(user, suppliers);
-      const weatherAlerts = await fetchWeatherAlerts(suppliers);
+      const [dynamicDisruptions, weatherAlerts] = await Promise.all([
+        generateGlobalRiskSignals(user, suppliers),
+        fetchWeatherAlerts(suppliers)
+      ]);
       
       // Combine and filter duplicates by title and location
       const combined = [...dynamicDisruptions, ...weatherAlerts].filter((v, i, a) => 

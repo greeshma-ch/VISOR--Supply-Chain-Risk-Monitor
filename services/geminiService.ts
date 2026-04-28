@@ -12,11 +12,17 @@ const impactCache = new Map<string, { data: ImpactAnalysis; timestamp: number }>
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
 
-const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, delay = 2000): Promise<T> => {
-  const models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview"];
+const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
+  const models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-flash-latest", "gemini-3.1-flash-lite-preview"];
   let modelIndex = 0;
+  const failedModels = new Set<string>();
 
   const execute = async (remainingRetries: number, currentDelay: number): Promise<T> => {
+    // Find next non-failed model
+    while (failedModels.has(models[modelIndex]) && failedModels.size < models.length) {
+      modelIndex = (modelIndex + 1) % models.length;
+    }
+    
     const currentModel = models[modelIndex];
     try {
       return await fn(currentModel);
@@ -25,25 +31,29 @@ const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, 
       const isQuotaError = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota');
       const isServiceUnavailable = errorString.includes('503') || errorString.includes('high demand') || errorString.includes('UNAVAILABLE');
       const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch');
-      const isModelNotFoundError = errorString.includes('404') || errorString.includes('not found');
+      const isModelNotFoundError = errorString.includes('404') || errorString.includes('not found') || errorString.includes('no longer available') || errorString.includes('not supported');
       
+      if (isModelNotFoundError) {
+        failedModels.add(currentModel);
+      }
+
       if ((isQuotaError || isTransientError || isServiceUnavailable || isModelNotFoundError) && remainingRetries > 0) {
-        let errorType = 'Transient/RPC Error';
+        let errorType = 'Error';
         if (isQuotaError) errorType = 'Quota Exceeded';
         if (isServiceUnavailable) errorType = 'High Demand (503)';
-        if (isModelNotFoundError) errorType = 'Model Not Found (404)';
+        if (isModelNotFoundError) errorType = 'Model Not Found/Available (404)';
 
         // Rotate model on 503 or 404
         if (isServiceUnavailable || isModelNotFoundError) {
           modelIndex = (modelIndex + 1) % models.length;
         }
 
-        const jitter = Math.random() * 500;
+        const jitter = Math.random() * 1500;
         const nextDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
         
-        console.warn(`Gemini Service ${errorType}. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms... (${remainingRetries} retries left)`);
+        console.warn(`Gemini Service ${errorType} on ${currentModel}. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms... (${remainingRetries} retries left)`);
         await new Promise(resolve => setTimeout(resolve, nextDelay));
-        return execute(remainingRetries - 1, nextDelay * 1.5);
+        return execute(remainingRetries - 1, nextDelay * 1.2);
       }
       throw error;
     }

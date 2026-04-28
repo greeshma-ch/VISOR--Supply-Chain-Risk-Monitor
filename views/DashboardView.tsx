@@ -42,9 +42,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   isRefreshing,
   onResync
 }) => {
-  const channelSuppliers = suppliers.filter(s => {
+  const channelSuppliers = React.useMemo(() => suppliers.filter(s => {
     return categoryFilter === 'ALL' || s.category === categoryFilter;
-  });
+  }), [suppliers, categoryFilter]);
 
   const getRelativeTime = (timestamp: string) => {
     const now = new Date();
@@ -61,37 +61,62 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return then.toLocaleDateString();
   };
 
-  const getCountByStatus = (status: RiskStatus) => channelSuppliers.filter(s => s.status === status).length;
+  const { stableCount, cautionCount, riskyCount, totalCount, copilotScore, delta } = React.useMemo(() => {
+    let stable = 0;
+    let caution = 0;
+    let risky = 0;
+    
+    channelSuppliers.forEach(s => {
+      if (s.status === RiskStatus.STABLE) stable++;
+      else if (s.status === RiskStatus.CAUTION) caution++;
+      else if (s.status === RiskStatus.RISKY) risky++;
+    });
 
-  const stableCount = getCountByStatus(RiskStatus.STABLE);
-  const cautionCount = getCountByStatus(RiskStatus.CAUTION);
-  const riskyCount = getCountByStatus(RiskStatus.RISKY);
-  const totalCount = channelSuppliers.length;
+    const total = channelSuppliers.length;
+    const score = total > 0 
+      ? Math.round(((stable * 100) + (caution * 60) + (risky * 20)) / total)
+      : 100;
 
-  const copilotScore = totalCount > 0 
-    ? Math.round(((stableCount * 100) + (cautionCount * 60) + (riskyCount * 20)) / totalCount)
-    : 100;
+    const d = total > 0 ? (stable / total * 5).toFixed(1) : "0.0";
 
-  // Calculate score trending (delta) - for now based on ratio of stable nodes
-  const delta = totalCount > 0 ? (stableCount / totalCount * 5).toFixed(1) : "0.0";
+    return {
+      stableCount: stable,
+      cautionCount: caution,
+      riskyCount: risky,
+      totalCount: total,
+      copilotScore: score,
+      delta: d
+    };
+  }, [channelSuppliers]);
 
-  const chartData = [
+  const chartData = React.useMemo(() => [
     { name: 'Stable', value: stableCount, color: '#059669', percentage: Math.round((stableCount/totalCount)*100) || 0, id: RiskStatus.STABLE },
     { name: 'Caution', value: cautionCount, color: '#D97706', percentage: Math.round((cautionCount/totalCount)*100) || 0, id: RiskStatus.CAUTION },
     { name: 'Risky', value: riskyCount, color: '#DC2626', percentage: Math.round((riskyCount/totalCount)*100) || 0, id: RiskStatus.RISKY },
   ].filter(d => d.value > 0).map(item => ({
     ...item,
     color: statusFilter === 'ALL' || statusFilter === item.id ? item.color : `${item.color}44`
-  }));
+  })), [stableCount, cautionCount, riskyCount, totalCount, statusFilter]);
 
-  const stats = [
+  const stats = React.useMemo(() => [
     { id: 'ALL', label: 'Network Total', value: totalCount, icon: Target, color: 'text-slate-600', bg: 'bg-slate-100', status: 'ALL' },
     { id: RiskStatus.RISKY, label: 'High Risk Nodes', value: riskyCount, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50', status: RiskStatus.RISKY },
     { id: RiskStatus.CAUTION, label: 'Active Caution', value: cautionCount, icon: Activity, color: 'text-amber-600', bg: 'bg-amber-50', status: RiskStatus.CAUTION },
     { id: RiskStatus.STABLE, label: 'Operational Sync', value: stableCount, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', status: RiskStatus.STABLE },
-  ];
+  ], [totalCount, riskyCount, cautionCount, stableCount]);
 
-  const activeRegions = Array.from(new Set(channelSuppliers.map(s => s.location)));
+  const activeRegions = React.useMemo(() => Array.from(new Set(channelSuppliers.map(s => s.location))), [channelSuppliers]);
+
+  const filteredDisruptions = React.useMemo(() => disruptions.filter(d => {
+    const matchesCategory = categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather';
+    // Node-Centric Filtering: Only show disruptions in regions where we have active suppliers
+    const matchesRegion = activeRegions.some(region => {
+      const regionParts = region.toLowerCase().split(',').map(p => p.trim());
+      const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
+      return regionParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+    });
+    return matchesCategory && matchesRegion;
+  }), [disruptions, categoryFilter, activeRegions]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -117,7 +142,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-6 sm:space-y-8 lg:space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">AI-Native Supply Chain Resilience Copilot</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">Resilience Copilot</h2>
           <div className="flex items-center gap-3 mt-2">
             <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-widest ${isRefreshing ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
               <Activity size={10} className={isRefreshing ? 'animate-pulse' : ''} />
@@ -331,16 +356,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest animate-bounce">Syncing Real-time Feed...</p>
                 </div>
               </div>
-            ) : disruptions.filter(d => {
-              const matchesCategory = categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather';
-              // Node-Centric Filtering: Only show disruptions in regions where we have active suppliers
-              const matchesRegion = activeRegions.some(region => {
-                const regionParts = region.toLowerCase().split(',').map(p => p.trim());
-                const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
-                return regionParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
-              });
-              return matchesCategory && matchesRegion;
-            }).map((d) => {
+            ) : filteredDisruptions.map((d) => {
               const displayTitle = d.title === "Operational Stability" 
                 ? `Operational Stability: ${d.location}` 
                 : d.title;
