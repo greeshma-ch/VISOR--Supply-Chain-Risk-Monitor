@@ -144,67 +144,69 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
 
               return (
                 <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   key={alert.id} 
                   onClick={() => onNavigateToResources(displayTitle)}
                   className="bg-[#0a0f1c] p-6 sm:p-8 rounded-[2rem] border border-white/5 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full group cursor-pointer"
                 >
-              <div className="flex justify-between items-start mb-6">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg transition-transform group-hover:scale-110 ${
-                  alert.severity === 'High' ? 'bg-rose-600 shadow-rose-900/20' : 'bg-amber-600 shadow-amber-900/20'
-                } ${iconColor}`}>
-                  <Icon size={20} />
-                </div>
-                <div className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-500 transition-colors group/btn">
-                  <ExternalLink size={16} className="group-hover/btn:text-blue-400 transition-colors" />
-                </div>
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
-                    alert.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    {alert.severity}
-                  </span>
-                  <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1">
-                    <Clock size={12} className="text-slate-600" /> {getRelativeTime(alert.timestamp)}
-                  </span>
-                </div>
-                <h3 className="text-lg font-black text-white tracking-tight leading-tight mb-4 group-hover:text-blue-400 transition-colors">{displayTitle}</h3>
-                
-                <div className="p-4 bg-white/[0.02] rounded-2xl mb-6 border border-white/5 shadow-inner">
-                  <p className="text-slate-400 text-[11px] leading-relaxed font-medium line-clamp-3">
-                    "{alert.summary}"
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-4 border-t border-white/5 pt-6">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Impact Zone</span>
-                  <span className="text-xs font-extrabold text-white uppercase truncate">{alert.location}</span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Nodes Affected</span>
-                  <div className="flex flex-wrap gap-2">
-                    {alert.impactedSuppliers.map((id) => {
-                      const supplier = suppliers.find(s => s.id === id);
-                      const displayName = supplier ? supplier.name : id.toUpperCase();
-                      return (
-                        <div 
-                          key={id} 
-                          className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[9px] font-black text-slate-300 shadow-sm hover:bg-white/10 transition-colors" 
-                          title={`Supplier: ${displayName}`}
-                        >
-                          {displayName}
-                        </div>
-                      );
-                    })}
+                  <div className="flex justify-between items-start mb-6">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg transition-transform group-hover:scale-110 ${
+                      alert.severity === 'High' ? 'bg-rose-600 shadow-rose-900/20' : 'bg-amber-600 shadow-amber-900/20'
+                    } ${iconColor}`}>
+                      <Icon size={20} />
+                    </div>
+                    <div className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-500 transition-colors group/btn">
+                      <ExternalLink size={16} className="group-hover/btn:text-blue-400 transition-colors" />
+                    </div>
                   </div>
-                </div>
-              </div>
+
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                        alert.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {alert.severity}
+                      </span>
+                      <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1">
+                        <Clock size={12} className="text-slate-600" /> {getRelativeTime(alert.timestamp)}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-black text-white tracking-tight leading-tight mb-4 group-hover:text-blue-400 transition-colors">{displayTitle}</h3>
+                    
+                    <div className="p-4 bg-white/[0.02] rounded-2xl mb-6 border border-white/5 shadow-inner">
+                      <p className="text-slate-400 text-[11px] leading-relaxed font-medium line-clamp-3">
+                        "{alert.summary}"
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-4 border-t border-white/5 pt-6">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Impact Zone</span>
+                      <span className="text-xs font-extrabold text-white uppercase truncate">{alert.location}</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Nodes Affected</span>
+                      <div className="flex flex-wrap gap-2">
+                        {alert.impactedSuppliers.map((id) => {
+                          const supplier = suppliers.find(s => s.id === id);
+                          const displayName = supplier ? supplier.name : id.toUpperCase();
+                          return (
+                            <div 
+                              key={id} 
+                              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[9px] font-black text-slate-300 shadow-sm hover:bg-white/10 transition-colors" 
+                              title={`Supplier: ${displayName}`}
+                            >
+                              {displayName}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
               );
             })}
@@ -223,7 +225,9 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
             <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Business Tier Required</span>
           </div>
         )}
-        <button 
+        <motion.button 
+          whileHover={user.plan === 'Business' ? { scale: 1.05 } : {}}
+          whileTap={user.plan === 'Business' ? { scale: 0.95 } : {}}
           onClick={handleAccessArchival}
           className={`px-8 py-4 font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all shadow-xl flex items-center gap-3 mx-auto ${
             user.plan === 'Business' 
@@ -232,7 +236,7 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
           }`}
         >
           <Archive size={16} /> Access Archival Data
-        </button>
+        </motion.button>
       </div>
     </div>
   );

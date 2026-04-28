@@ -307,13 +307,19 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         <div className="lg:col-span-2 space-y-6 sm:space-y-8">
-          <section className="bg-[#0a0f1c] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-sm relative overflow-hidden">
+          <motion.section 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-[#0a0f1c] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-sm relative overflow-hidden"
+          >
             {(!user.plan || user.plan === 'Basic') && (
               <div className="absolute inset-0 z-10 bg-[#0a0f1c]/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
                 <Lock className="text-blue-500 mb-4" size={32} />
                 <h4 className="text-white font-bold mb-2">AI Insights Locked</h4>
                 <p className="text-slate-500 text-xs max-w-[240px]">Upgrade to Intermediate or Business tier to unlock real-time intelligence synthesis.</p>
                 <motion.button 
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onBack}
                   className="mt-4 px-6 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl"
@@ -344,10 +350,15 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
                 {brief?.summary}
               </p>
             )}
-          </section>
+          </motion.section>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            <div className="bg-[#0a0f1c] p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-[#0a0f1c] p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5"
+            >
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <CloudSun size={16} className="text-amber-500" /> Weather Matrix
               </h4>
@@ -412,8 +423,13 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
               ) : (
                 <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">{brief?.weatherStatus}</p>
               )}
-            </div>
-            <div className="bg-[#0a0f1c] p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5">
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-[#0a0f1c] p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5"
+            >
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                 <History size={16} className="text-indigo-500" /> Regional Archive
               </h4>
@@ -425,10 +441,15 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
               ) : (
                 <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">{brief?.historicalContext}</p>
               )}
-            </div>
+            </motion.div>
           </div>
 
-          <section className="bg-[#0a0f1c] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-sm">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-[#0a0f1c] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-sm"
+          >
             <h3 className="text-base sm:text-lg font-bold text-white mb-6 flex items-center gap-2">
               <Newspaper size={18} className="text-emerald-500" /> Intelligence Stream
             </h3>
@@ -500,7 +521,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
                 </>
               )}
             </div>
-          </section>
+          </motion.section>
         </div>
 
         <div className="space-y-6 sm:space-y-8">

@@ -10,7 +10,6 @@ import {
   Clock,
   ArrowUpRight,
   Target,
-  Lock
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
@@ -178,14 +177,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-10">
         <div className="xl:col-span-2 bg-[#080c18] p-6 sm:p-10 rounded-[2.5rem] border border-white/5 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[500px] sm:min-h-[600px]">
-          {(!user.plan || user.plan === 'Basic') && (
-            <div className="absolute top-6 right-6 z-10">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
-                <Lock size={12} className="text-slate-500" />
-                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Customization Locked</span>
-              </div>
-            </div>
-          )}
           <div className="absolute top-6 sm:top-10 left-6 sm:left-10">
             <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Network Resilience</h3>
             <p className="text-slate-500 font-medium text-xs sm:text-sm mt-1 uppercase tracking-widest">Node status distribution</p>
@@ -203,7 +194,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   paddingAngle={6}
                   dataKey="value"
                   animationBegin={0}
-                  animationDuration={800}
+                  animationDuration={400}
+                  animationEasing="ease-out"
                   stroke="none"
                 >
                   {chartData.map((entry, index) => (

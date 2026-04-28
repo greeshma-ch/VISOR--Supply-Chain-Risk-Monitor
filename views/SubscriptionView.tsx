@@ -34,8 +34,7 @@ const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onBack, onNav
         '100 Supplier Nodes',
         'Limited AI Insights',
         '6h Data Sync',
-        'Contact Details Access',
-        'Dashboard Customization'
+        'Contact Details Access'
       ],
       color: 'bg-blue-600',
       active: user.plan === 'Intermediate'

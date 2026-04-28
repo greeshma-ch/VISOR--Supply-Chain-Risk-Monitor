@@ -33,13 +33,17 @@ const App: React.FC = () => {
     setView(newView);
   };
 
-  const handleSwipe = (offset: number) => {
+  const handleSwipe = (offset: number, velocity: number) => {
     const currentIndex = viewOrder.indexOf(view);
     if (currentIndex === -1) return;
 
-    if (offset < -100 && currentIndex < viewOrder.length - 1) {
+    // Faster threshold: 30% of typical screen width (~100-150px) or high velocity
+    const threshold = 80;
+    const isFastSwipe = Math.abs(velocity) > 500;
+
+    if ((offset < -threshold || (velocity < -500 && offset < -20)) && currentIndex < viewOrder.length - 1) {
       handleViewChange(viewOrder[currentIndex + 1]);
-    } else if (offset > 100 && currentIndex > 0) {
+    } else if ((offset > threshold || (velocity > 500 && offset > 20)) && currentIndex > 0) {
       handleViewChange(viewOrder[currentIndex - 1]);
     }
   };
@@ -349,7 +353,7 @@ const App: React.FC = () => {
         <motion.div 
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
-          onDragEnd={(_, info) => handleSwipe(info.offset.x)}
+          onDragEnd={(_, info) => handleSwipe(info.offset.x, info.velocity.x)}
           className={`flex-1 ${view === 'MAP' ? 'overflow-hidden' : 'overflow-y-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 lg:py-10'} custom-scrollbar ${selectedSupplier ? 'opacity-20 blur-md scale-[0.98] pointer-events-none' : 'opacity-100 scale-100'}`}
         >
           <AnimatePresence mode="popLayout" initial={false}>

@@ -4,6 +4,7 @@ import { ArrowRight, Building2, UserCircle, Key, Globe, ChevronDown } from 'luci
 import Logo from '../components/Logo';
 import { User, Role } from '../types';
 import { GLOBAL_HUBS, getCityCoords } from '../constants';
+import { motion } from 'motion/react';
 
 interface AuthViewProps {
   onComplete: (user: User) => void;
@@ -69,8 +70,22 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-4 sm:space-y-5">
-          <div className="space-y-2">
+        <motion.form 
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
+          onSubmit={handleSubmit} 
+          className="p-6 sm:p-8 space-y-4 sm:space-y-5"
+        >
+          <motion.div variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
               <Building2 size={14} /> Enterprise Domain
             </label>
@@ -82,9 +97,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
               placeholder="e.g. Global Logistics"
               className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-white placeholder:text-slate-700 text-sm"
             />
-          </div>
+          </motion.div>
 
-          <div className="space-y-2">
+          <motion.div variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
               <Key size={14} /> Access Protocol
             </label>
@@ -96,9 +111,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
               placeholder="e.g. 12345678"
               className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-white text-sm"
             />
-          </div>
+          </motion.div>
 
-          <div className="space-y-2">
+          <motion.div variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
               <Globe size={14} /> Global Headquarters
             </label>
@@ -118,9 +133,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
                 ))}
               </datalist>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="space-y-2">
+          <motion.div variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
               <Globe size={14} /> Risk Analysis Sector
             </label>
@@ -140,9 +155,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
                 <ChevronDown size={14} />
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="space-y-2">
+          <motion.div variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="space-y-2">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
               <UserCircle size={14} /> Operational Role
             </label>
@@ -163,19 +178,22 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
                 <ChevronDown size={14} />
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <button
+          <motion.button
+            variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+            whileHover={{ scale: 1.02, backgroundColor: '#3b82f6' }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-[0_0_25px_rgba(37,99,235,0.25)] flex items-center justify-center gap-3 transition-all transform active:scale-[0.98]"
+            className="w-full py-3.5 bg-blue-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-[0_0_25px_rgba(37,99,235,0.25)] flex items-center justify-center gap-3 transition-all"
           >
             Authorize Session <ArrowRight size={16} />
-          </button>
+          </motion.button>
 
-          <p className="text-center text-[7px] text-slate-700 font-black uppercase tracking-[0.4em] mt-2">
+          <motion.p variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="text-center text-[7px] text-slate-700 font-black uppercase tracking-[0.4em] mt-2">
             Encrypted Node Access Protocol
-          </p>
-        </form>
+          </motion.p>
+        </motion.form>
       </div>
     </div>
   );

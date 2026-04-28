@@ -12,7 +12,6 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onNavigate }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [groundingEnabled, setGroundingEnabled] = useState(true);
-  const [customizationEnabled, setCustomizationEnabled] = useState(false);
   const [erpIntegrationEnabled, setErpIntegrationEnabled] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
@@ -161,23 +160,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onNavigate }) => {
                 className={`w-12 sm:w-14 h-6 sm:h-8 flex-shrink-0 rounded-full relative p-1 transition-all ${notificationsEnabled ? 'bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'bg-slate-800'}`}
               >
                 <div className={`w-4 sm:w-6 h-4 sm:h-6 bg-white rounded-full transition-all duration-300 shadow-xl ${notificationsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-              </button>
-            </div>
-
-            <div className={`flex items-center justify-between gap-6 sm:gap-10 transition-opacity ${user.plan === 'Basic' ? 'opacity-40' : 'opacity-100'}`}>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm sm:text-base font-extrabold text-white uppercase tracking-tight">Dashboard Customization</p>
-                  {user.plan === 'Basic' && <Lock size={12} className="text-slate-500" />}
-                </div>
-                <p className="text-[10px] sm:text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest leading-relaxed">Rearrange intelligence modules and custom KPI tracking.</p>
-              </div>
-              <button 
-                disabled={user.plan === 'Basic'}
-                onClick={() => setCustomizationEnabled(!customizationEnabled)}
-                className={`w-12 sm:w-14 h-6 sm:h-8 flex-shrink-0 rounded-full relative p-1 transition-all ${customizationEnabled ? 'bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'bg-slate-800'} ${user.plan === 'Basic' ? 'cursor-not-allowed' : ''}`}
-              >
-                <div className={`w-4 sm:w-6 h-4 sm:h-6 bg-white rounded-full transition-all duration-300 shadow-xl ${customizationEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
               </button>
             </div>
           </div>

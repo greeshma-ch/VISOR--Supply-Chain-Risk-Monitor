@@ -7,6 +7,7 @@ import { Disruption, Supplier, RiskStatus, User } from '../types';
 import Markdown from 'react-markdown';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface Resource {
   id: number;
@@ -743,7 +744,11 @@ ${separator}
               const isItemLocked = isHistorical && user.plan !== 'Business';
 
               return (
-                <div 
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   key={res.id} 
                   ref={isHighlighted ? highlightedRef : null}
                   onClick={() => {
@@ -762,7 +767,7 @@ ${separator}
                     handleHover(res);
                   }}
                   onMouseLeave={handleMouseLeave}
-                  className={`relative p-6 bg-white/5 rounded-3xl border transition-all cursor-pointer group flex flex-col h-full overflow-hidden hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/10 ${
+                  className={`relative p-6 bg-white/5 rounded-3xl border transition-all cursor-pointer group flex flex-col h-full overflow-hidden hover:shadow-2xl hover:shadow-blue-500/10 ${
                     isHighlighted 
                       ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.2)] ring-2 ring-blue-500/50' 
                       : isItemLocked
@@ -851,7 +856,7 @@ ${separator}
                     {isItemLocked ? 'Unauthorized' : 'Authorized'}
                   </span>
                 </div>
-                </div>
+                </motion.div>
               );
             })
           ) : (
