@@ -50,7 +50,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('vs_session');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (!parsed.sectors) parsed.sectors = ['Logistics'];
+      if (!parsed.sectors) parsed.sectors = ['Pharmaceuticals', 'Logistics', 'Semiconductors', 'Electronics', 'Automotive'];
       // Ensure all features are available
       return parsed;
     }

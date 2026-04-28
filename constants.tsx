@@ -5,6 +5,7 @@ export const CATEGORIES = [
   'Electronics',
   'Semiconductors',
   'Automotive',
+  'Pharmaceuticals',
   'Textiles',
   'F&B',
   'Logistics'
@@ -70,6 +71,16 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     status: RiskStatus.STABLE,
     contactEmail: 'orders@organic-grain.com',
     lastUpdated: '2026-04-15T16:45:00Z'
+  },
+  {
+    id: 's7',
+    name: 'BioGen Therapeutics',
+    category: 'Pharmaceuticals',
+    location: 'Switzerland, Zurich',
+    coordinates: [47.37, 8.54],
+    status: RiskStatus.STABLE,
+    contactEmail: 'supply-chain@biogen-tx.ch',
+    lastUpdated: '2026-04-15T09:00:00Z'
   }
 ];
 
