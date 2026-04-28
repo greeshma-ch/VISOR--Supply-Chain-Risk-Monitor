@@ -14,7 +14,6 @@ export interface User {
   hqLocation?: string;
   hqCoordinates?: [number, number];
   sectors?: string[];
-  plan?: string;
 }
 
 export interface Supplier {
@@ -38,6 +37,8 @@ export interface Disruption {
   summary: string;
   impactedSuppliers: string[];
   weatherIcon?: string;
+  sourceUrl?: string;
+  verificationStatus?: 'verified' | 'unverified';
 }
 
 export interface IntelligenceBrief {
@@ -63,4 +64,4 @@ export interface ImpactAnalysis {
   strategicAction: string;
 }
 
-export type View = 'DASHBOARD' | 'REGISTRY' | 'INTELLIGENCE' | 'MAP' | 'FEED' | 'SETTINGS' | 'SUBSCRIPTION' | 'RESOURCES' | 'PAYMENT';
+export type View = 'DASHBOARD' | 'REGISTRY' | 'INTELLIGENCE' | 'MAP' | 'FEED' | 'SETTINGS' | 'RESOURCES';

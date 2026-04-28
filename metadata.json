@@ -1,6 +1,6 @@
 {
   "name": "VISOR",
-  "description": "An AI-powered supply chain intelligence platform that monitors disruptions using real-time weather, news, and historical data.",
+  "description": "A predictive supply chain resilience copilot that monitors disruptions using real-time global intelligence, weather alerts, and AI-driven risk modeling.",
   "requestFramePermissions": [
     "geolocation"
   ]

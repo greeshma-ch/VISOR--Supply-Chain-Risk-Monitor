@@ -12,9 +12,7 @@ import IntelligenceView from './views/IntelligenceView';
 import MapView from './views/MapView';
 import FeedView from './views/FeedView';
 import SettingsView from './views/SettingsView';
-import SubscriptionView from './views/SubscriptionView';
 import ResourcesView from './views/ResourcesView';
-import PaymentView from './views/PaymentView';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 
@@ -53,8 +51,7 @@ const App: React.FC = () => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (!parsed.sectors) parsed.sectors = ['Logistics'];
-      // Ensure Business tier for demo
-      if (parsed.plan !== 'Business') parsed.plan = 'Business';
+      // Ensure all features are available
       return parsed;
     }
     return null;
@@ -79,26 +76,43 @@ const App: React.FC = () => {
     localStorage.setItem('vs_suppliers', JSON.stringify(suppliers));
   }, [suppliers]);
   const [simulatedRiskyNodes, setSimulatedRiskyNodes] = useState<string[]>([]);
-  
-  const getPlanNodeLimit = (planName?: string) => {
-    switch (planName) {
-      case 'Basic': return 20;
-      case 'Intermediate': return 100;
-      case 'Business': return Infinity;
-      default: return 20; // Default to basic if no plan
-    }
-  };
+  const [disruptions, setDisruptions] = useState<Disruption[]>(MOCK_DISRUPTIONS);
+  const [resourceContext, setResourceContext] = useState<{ title: string; sources: { title: string; uri: string }[] } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const activeSuppliers = suppliers.slice(0, getPlanNodeLimit(user?.plan)).map(s => {
+  const activeSuppliers = React.useMemo(() => suppliers.map(s => {
+    // Priority 1: Simulation
     if (simulatedRiskyNodes.includes(s.id)) {
       return { ...s, status: RiskStatus.RISKY };
     }
-    return s;
-  });
-  const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: string } | null>(null);
-  const [resourceContext, setResourceContext] = useState<{ title: string; sources: { title: string; uri: string }[] } | null>(null);
-  const [disruptions, setDisruptions] = useState<Disruption[]>(MOCK_DISRUPTIONS);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Priority 2: Real-time disruptions from feed
+    const relevantDisruptions = disruptions.filter(d => {
+      const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
+      if (isDirectlyImpacted) return true;
+
+      // Deep region matching consistent with FeedView
+      if (!d.location) return false;
+      const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
+      const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
+      return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+    });
+
+    if (relevantDisruptions.length > 0) {
+      const highestSeverityObj = relevantDisruptions.reduce((prev, curr) => {
+        const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
+        const currVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
+        const prevVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
+        return currVal > prevVal ? curr : prev;
+      });
+
+      if (highestSeverityObj.severity === 'High') return { ...s, status: RiskStatus.RISKY };
+      if (highestSeverityObj.severity === 'Medium') return { ...s, status: RiskStatus.CAUTION };
+      return { ...s, status: RiskStatus.STABLE };
+    }
+
+    return { ...s, status: RiskStatus.STABLE };
+  }), [suppliers, simulatedRiskyNodes, disruptions]);
 
   const isInitialMount = React.useRef(true);
 
@@ -113,7 +127,21 @@ const App: React.FC = () => {
       const combined = [...dynamicDisruptions, ...weatherAlerts].filter((v, i, a) => 
         a.findIndex(t => t.title === v.title && t.location === v.location) === i
       );
-      setDisruptions(combined);
+
+      // Prioritization Logic: High > Medium > Low, then by recent timestamp
+      const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
+      const sorted = combined.sort((a, b) => {
+        const severityA = severityMap[a.severity as keyof typeof severityMap] || 0;
+        const severityB = severityMap[b.severity as keyof typeof severityMap] || 0;
+        
+        if (severityA !== severityB) {
+          return severityB - severityA;
+        }
+        
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      });
+
+      setDisruptions(sorted);
       
       if (dynamicDisruptions.length > 0 || weatherAlerts.length > 0) {
         // Only show toast if it's not the initial automatic refresh or if it's a manual resync
@@ -140,19 +168,10 @@ const App: React.FC = () => {
        refreshDisruptions();
     }
 
-    // Dynamic refresh frequency based on tier
-    const getRefreshInterval = () => {
-      switch (user?.plan) {
-        case 'Business': return 120000;      // 2 mins (Real-time threshold)
-        case 'Intermediate': return 21600000; // 6 hours
-        case 'Basic': return 86400000;        // 24 hours
-        default: return 86400000;
-      }
-    };
-
-    const interval = setInterval(refreshDisruptions, getRefreshInterval());
+    // Synchronize every 2 minutes
+    const interval = setInterval(refreshDisruptions, 120000);
     return () => clearInterval(interval);
-  }, [suppliers.length, user?.plan, user]);
+  }, [suppliers.length, user]);
 
   const handleAuthComplete = (userData: User) => {
     setUser(userData);
@@ -191,6 +210,7 @@ const App: React.FC = () => {
         : [...prev, supplierId];
       
       toast.info(isSimulated ? "Node Restored" : "Node Compromised", {
+        id: `sim-${supplierId}`,
         description: isSimulated 
           ? "Supplier has been removed from the crisis simulation."
           : "Supplier has been flagged as RISKY for simulation purposes."
@@ -201,14 +221,6 @@ const App: React.FC = () => {
   };
 
   const handleAddSupplier = (newSupplier: Supplier) => {
-    const limit = getPlanNodeLimit(user?.plan);
-    if (suppliers.length >= limit) {
-      toast.error("Node Capacity Exceeded", {
-        description: `Operational limit (${limit} nodes) reached for your current tier.`
-      });
-      return;
-    }
-    
     setSuppliers(prev => [newSupplier, ...prev]);
     toast.success("Supplier Integrated", {
       description: `${newSupplier.name} has been added to the global registry and map analytics.`
@@ -275,34 +287,12 @@ const App: React.FC = () => {
               setView('RESOURCES');
             }} 
             disruptions={disruptions} 
-            suppliers={suppliers} 
+            suppliers={activeSuppliers} 
             isRefreshing={isRefreshing}
           />
         );
       case 'SETTINGS':
-        return <SettingsView user={user} onNavigate={setView} />;
-      case 'SUBSCRIPTION':
-        return (
-          <SubscriptionView 
-            user={user}
-            onBack={() => setView('SETTINGS')} 
-            onNavigateToPayment={(plan) => {
-              if (plan.name === 'Basic') {
-                if (user) {
-                  const updatedUser = { ...user, plan: 'Basic' };
-                  setUser(updatedUser);
-                  localStorage.setItem('vs_session', JSON.stringify(updatedUser));
-                  toast.success("Basic Plan Activated", {
-                    description: "Your network has been provisioned with Basic Tier capabilities."
-                  });
-                }
-                return;
-              }
-              setSelectedPlan(plan);
-              setView('PAYMENT');
-            }} 
-          />
-        );
+        return <SettingsView user={user} onLogout={handleLogout} />;
       case 'RESOURCES':
         return (
           <ResourcesView 
@@ -314,23 +304,6 @@ const App: React.FC = () => {
             context={resourceContext}
             disruptions={disruptions}
             suppliers={activeSuppliers}
-          />
-        );
-      case 'PAYMENT':
-        return (
-          <PaymentView 
-            onBack={() => setView('SUBSCRIPTION')} 
-            selectedPlan={selectedPlan}
-            onPaymentSuccess={(planName) => {
-              if (user) {
-                const updatedUser = { ...user, plan: planName };
-                setUser(updatedUser);
-                localStorage.setItem('vs_session', JSON.stringify(updatedUser));
-                toast.success(`${planName} Plan Activated`, {
-                  description: `Your enterprise handshake for ${planName} tier is complete.`
-                });
-              }
-            }}
           />
         );
       default:
@@ -383,7 +356,7 @@ const App: React.FC = () => {
               <div className="max-w-[1600px] mx-auto p-4 sm:p-6 md:p-10 min-h-full">
                 <IntelligenceView 
                   user={user}
-                  supplier={selectedSupplier} 
+                  supplier={activeSuppliers.find(s => s.id === selectedSupplier.id) || selectedSupplier} 
                   onBack={() => setSelectedSupplier(null)}
                   onUpdateStatus={(status) => updateSupplierStatus(selectedSupplier.id, status)}
                   onNavigateToResources={(context) => {
@@ -393,6 +366,7 @@ const App: React.FC = () => {
                   }}
                   isSimulated={simulatedRiskyNodes.includes(selectedSupplier.id)}
                   onToggleSimulation={() => toggleNodeSimulation(selectedSupplier.id)}
+                  disruptions={disruptions}
                 />
               </div>
             </motion.div>

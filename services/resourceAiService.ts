@@ -136,7 +136,7 @@ export const generateResourceDocument = async (title: string, location: string, 
       detailedAnalysis: "Grounded analysis based on current regional telemetry and nodal performance indicators.",
       riskAssessment: activeDisruptionSummary ? activeDisruptionSummary : "No probable disruptions found according to real-time intelligence nodes.",
       operationalProtocol: "Follow Standard Operating Procedures (SOP-LOG-01) for regional node management.",
-      mitigationStrategies: "Maintain buffer stock and secondary logistics lines as per resilience guidelines.",
+      mitigationStrategies: "Deactivate identified bottlenecks and switch to pre-verified alternate logistics corridors. Activate strategic contingency reserves.",
       classification: "INTERNAL // CLASSIFIED"
     };
   }

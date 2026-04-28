@@ -41,10 +41,10 @@ const ResourcesView: React.FC<ResourcesViewProps> = ({ user, onBack, context, di
   const documentRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    if (context?.title === "VISOR ARCHIVAL VAULT" && user.plan === 'Business') {
+    if (context?.title === "VISOR ARCHIVAL VAULT") {
       setSelectedCategory('archives');
     }
-  }, [context, user.plan]);
+  }, [context]);
 
   const recentResources: Resource[] = useMemo(() => {
     // 1. Map current disruptions to resources
@@ -637,26 +637,17 @@ ${separator}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
         {categories.map((cat) => {
-          const isLocked = cat.id === 'archives' && user.plan !== 'Business';
           return (
             <button 
               key={cat.id} 
               onClick={() => {
-                if (isLocked) {
-                  import('sonner').then(({ toast }) => {
-                    toast.error("Access Restricted", {
-                      description: "Historical archival datasets are exclusively available to Business tier licensees."
-                    });
-                  });
-                  return;
-                }
                 setSelectedCategory(selectedCategory === cat.id ? null : cat.id);
               }}
               className={`p-8 sm:p-12 rounded-[2.5rem] sm:rounded-[3rem] border transition-all duration-500 group text-left relative overflow-hidden ${
                 selectedCategory === cat.id 
                   ? 'bg-blue-600/5 border-blue-500 shadow-[0_0_50px_rgba(59,130,246,0.2)]' 
                   : 'bg-[#070b14] border-white/[0.03] hover:border-blue-500/20'
-              } ${isLocked ? 'grayscale-[0.5] opacity-80' : ''}`}
+              }`}
             >
               {selectedCategory === cat.id && (
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] -mr-16 -mt-16" />
@@ -664,18 +655,13 @@ ${separator}
               <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-8 sm:mb-12 group-hover:scale-110 transition-all duration-500 ${
                 selectedCategory === cat.id ? 'bg-blue-600 text-white shadow-[0_0_25px_rgba(37,99,235,0.5)]' : 'bg-[#0a1224] text-blue-500 border border-blue-500/10'
               }`}>
-                {isLocked ? <Lock size={28} className="text-slate-500" /> : <cat.icon size={28} />}
+                <cat.icon size={28} />
               </div>
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-xl sm:text-2xl font-black text-white mb-2 uppercase tracking-tight leading-tight">{cat.title}</h3>
                   <p className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-[0.2em]">{cat.count} Active Assets</p>
                 </div>
-                {isLocked && (
-                  <div className="p-2 bg-blue-600/20 rounded-xl border border-blue-500/30">
-                    <Lock size={14} className="text-blue-400" />
-                  </div>
-                )}
               </div>
             </button>
           );
@@ -721,27 +707,9 @@ ${separator}
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 p-6 sm:p-8 min-h-[300px] relative">
-          {(selectedCategory === 'archives' && user.plan !== 'Business') ? (
-            <div className="col-span-1 sm:col-span-2 lg:col-span-3 py-20 flex flex-col items-center justify-center text-center animate-in fade-in duration-700">
-              <div className="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center mb-6 border border-blue-500/20">
-                <Lock size={32} className="text-blue-500" />
-              </div>
-              <h4 className="text-2xl font-black text-white uppercase tracking-tight mb-2">Historical Archival Vault Locked</h4>
-              <p className="text-slate-500 max-w-md mx-auto text-sm font-medium leading-relaxed mb-8">
-                Your current {user.plan || 'Basic'} tier does not have the clearance for audited logistics metadata from 2018-2024. Upgrade to Business for full archival access.
-              </p>
-              <button 
-                onClick={onBack}
-                className="px-10 py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-blue-500 transition-all"
-              >
-                Return to Dashboard
-              </button>
-            </div>
-          ) : filteredResources.length > 0 ? (
+          {filteredResources.length > 0 ? (
             filteredResources.map((res) => {
               const isHighlighted = context?.title === res.title;
-              const isHistorical = res.title.includes('ARCHIVE') || res.title.includes('CASE STUDY') || res.category === 'archives';
-              const isItemLocked = isHistorical && user.plan !== 'Business';
 
               return (
                 <motion.div 
@@ -752,37 +720,21 @@ ${separator}
                   key={res.id} 
                   ref={isHighlighted ? highlightedRef : null}
                   onClick={() => {
-                    if (isItemLocked) {
-                      import('sonner').then(({ toast }) => {
-                        toast.error("Handshake Failed", {
-                          description: "Historical archival datasets are exclusively available to Business tier licensees."
-                        });
-                      });
-                      return;
-                    }
                     handleResourceClick(res);
                   }}
                   onMouseEnter={() => {
-                    if (isItemLocked) return;
                     handleHover(res);
                   }}
                   onMouseLeave={handleMouseLeave}
                   className={`relative p-6 bg-white/5 rounded-3xl border transition-all cursor-pointer group flex flex-col h-full overflow-hidden hover:shadow-2xl hover:shadow-blue-500/10 ${
                     isHighlighted 
                       ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.2)] ring-2 ring-blue-500/50' 
-                      : isItemLocked
-                        ? 'border-white/5 opacity-60 grayscale-[0.5] cursor-not-allowed'
-                        : 'border-white/10 hover:border-blue-500/50 hover:bg-white/[0.08]'
+                      : 'border-white/10 hover:border-blue-500/50 hover:bg-white/[0.08]'
                   }`}
                 >
                   {isHighlighted && (
                     <div className="absolute top-0 right-0 px-3 py-1 bg-blue-600 text-[8px] font-black text-white uppercase tracking-widest rounded-bl-xl z-20 animate-pulse">
                       Linked Intelligence
-                    </div>
-                  )}
-                  {isItemLocked && (
-                    <div className="absolute top-3 right-3 z-20 p-2 bg-black/60 rounded-xl border border-white/5 text-slate-500">
-                      <Lock size={12} />
                     </div>
                   )}
                   {/* Briefing Overlay */}
@@ -852,8 +804,8 @@ ${separator}
 
                 <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
                   <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Access Protocol</span>
-                  <span className={`text-[9px] font-bold uppercase ${isItemLocked ? 'text-rose-500' : 'text-blue-500'}`}>
-                    {isItemLocked ? 'Unauthorized' : 'Authorized'}
+                  <span className="text-[9px] font-bold uppercase text-blue-500">
+                    Authorized
                   </span>
                 </div>
                 </motion.div>

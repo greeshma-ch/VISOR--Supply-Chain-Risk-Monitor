@@ -123,7 +123,7 @@ const Logo: React.FC<LogoProps> = ({ collapsed = false, className = '' }) => {
               textShadow: '0.5px 0 rgba(239, 68, 68, 0.5), -0.5px 0 rgba(6, 182, 212, 0.5)'
             }}
           >
-            AI-POWERED RESILIENCE OPERATOR
+            AI-Native Supply Chain Resilience Copilot
           </span>
         </div>
       )}

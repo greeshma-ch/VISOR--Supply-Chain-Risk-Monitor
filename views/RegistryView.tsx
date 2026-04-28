@@ -35,7 +35,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isAddSectorOpen, setIsAddSectorOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<'SECTOR' | 'STATUS' | null>(null);
   const [newSupplierLocation, setNewSupplierLocation] = useState('');
 
   const sectors = user.sectors || ['Logistics'];
@@ -49,28 +49,8 @@ const RegistryView: React.FC<RegistryViewProps> = ({
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  const getPlanNodeLimit = (planName?: string) => {
-    switch (planName) {
-      case 'Business': return Infinity;
-      case 'Intermediate': return 100;
-      case 'Basic': return 20;
-      default: return 20;
-    }
-  };
-
-  const nodeLimit = getPlanNodeLimit(user.plan);
-  const isAtLimit = suppliers.length >= nodeLimit;
-
   const handleAddSupplier = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    if (isAtLimit) {
-      toast.error("Node Capacity Exceeded", {
-        description: `Your ${user.plan} tier is limited to ${nodeLimit} nodes. Upgrade for unlimited monitoring.`
-      });
-      setIsAddModalOpen(false);
-      return;
-    }
     
     const formData = new FormData(e.currentTarget);
     
@@ -97,7 +77,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
     if (!sectors.includes(sector)) {
       updateSectors([...sectors, sector]);
     }
-    setIsAddSectorOpen(false);
+    setActiveDropdown(null);
   };
 
   const handleRemoveSector = (sector: string) => {
@@ -114,24 +94,11 @@ const RegistryView: React.FC<RegistryViewProps> = ({
     <div className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex-shrink-0">
-          <h2 className="text-3xl font-black text-white tracking-tight uppercase">Network Registry</h2>
+          <h2 className="text-3xl font-black text-white tracking-tight uppercase">Node Registry</h2>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
             <p className="text-slate-500 font-medium text-[10px] uppercase tracking-widest whitespace-nowrap">
-              Monitoring {suppliers.length} active global partners.
+              Syndicating insights for {suppliers.length} active global partners.
             </p>
-            {user.plan !== 'Business' && (
-              <div className="flex items-center gap-2">
-                <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                  <div 
-                    className={`h-full transition-all duration-1000 ${isAtLimit ? 'bg-rose-500' : 'bg-blue-500'}`}
-                    style={{ width: `${Math.min(100, (suppliers.length / nodeLimit) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">
-                  {suppliers.length} / {nodeLimit} Nodes
-                </span>
-              </div>
-            )}
           </div>
         </div>
         
@@ -157,81 +124,115 @@ const RegistryView: React.FC<RegistryViewProps> = ({
           </motion.button>
 
           {/* Sector Filters Dropdown */}
-          <div className="relative group">
-            <button className="h-11 px-4 bg-[#0a0f1c] border border-white/10 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-white/5 transition-all whitespace-nowrap">
-              Sector: <span className="text-white">{categoryFilter}</span> <ChevronDown size={14} />
+          <div className="relative">
+            <button 
+              onClick={() => setActiveDropdown(activeDropdown === 'SECTOR' ? null : 'SECTOR')}
+              className={`h-11 px-4 bg-[#0a0f1c] border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${
+                activeDropdown === 'SECTOR' ? 'border-blue-500 text-white' : 'border-white/10 text-slate-300 hover:bg-white/5'
+              }`}
+            >
+              Sector: <span className="text-white">{categoryFilter}</span> <ChevronDown size={14} className={`transition-transform duration-200 ${activeDropdown === 'SECTOR' ? 'rotate-180' : ''}`} />
             </button>
-            <div className="absolute right-0 top-full mt-2 w-56 bg-[#0a0f1c] border border-white/10 rounded-xl shadow-2xl z-50 p-2 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="space-y-1">
-                <button
-                  onClick={() => onCategoryFilterChange('ALL')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                    categoryFilter === 'ALL' 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                  }`}
-                >
-                  ALL
-                </button>
-                {sectors.map((s) => (
-                  <div key={s} className="flex items-center gap-1 group/item">
-                    <button
-                      onClick={() => onCategoryFilterChange(s)}
-                      className={`flex-1 text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                        categoryFilter === s 
-                          ? 'bg-blue-600/20 text-blue-400' 
-                          : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleRemoveSector(s); }}
-                      className="p-1.5 text-slate-600 hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-400/5"
-                      title="Remove Sector"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-                <div className="pt-2 mt-2 border-t border-white/5">
-                  <p className="px-3 py-1 text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Add Sector</p>
-                  <div className="grid grid-cols-1 gap-1">
-                    {CATEGORIES.filter(c => !sectors.includes(c)).map(c => (
+            <AnimatePresence>
+              {activeDropdown === 'SECTOR' && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-2 w-56 bg-[#0a0f1c] border border-white/10 rounded-xl shadow-2xl z-50 p-2 overflow-hidden"
+                  >
+                    <div className="space-y-1">
                       <button
-                        key={c}
-                        onClick={() => handleAddSector(c)}
-                        className="w-full text-left px-3 py-2 rounded-lg text-[9px] font-bold text-slate-500 hover:bg-white/5 hover:text-white transition-all"
+                        onClick={() => { onCategoryFilterChange('ALL'); setActiveDropdown(null); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                          categoryFilter === 'ALL' 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                            : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                        }`}
                       >
-                        + {c}
+                        ALL
                       </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+                      {sectors.map((s) => (
+                        <div key={s} className="flex items-center gap-1 group/item">
+                          <button
+                            onClick={() => { onCategoryFilterChange(s); setActiveDropdown(null); }}
+                            className={`flex-1 text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                              categoryFilter === s 
+                                ? 'bg-blue-600/20 text-blue-400' 
+                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                            }`}
+                          >
+                            {s}
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleRemoveSector(s); }}
+                            className="p-1.5 text-slate-600 hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-400/5"
+                            title="Remove Sector"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="pt-2 mt-2 border-t border-white/5">
+                        <p className="px-3 py-1 text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Add Sector</p>
+                        <div className="grid grid-cols-1 gap-1">
+                          {CATEGORIES.filter(c => !sectors.includes(c)).map(c => (
+                            <button
+                              key={c}
+                              onClick={() => handleAddSector(c)}
+                              className="w-full text-left px-3 py-2 rounded-lg text-[9px] font-bold text-slate-500 hover:bg-white/5 hover:text-white transition-all"
+                            >
+                              + {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Status Filter Dropdown */}
-          <div className="relative group">
-            <button className="h-11 px-4 bg-[#0a0f1c] border border-white/10 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-white/5 transition-all whitespace-nowrap">
-              Status: <span className="text-white">{statusFilter}</span> <ChevronDown size={14} />
+          <div className="relative">
+            <button 
+              onClick={() => setActiveDropdown(activeDropdown === 'STATUS' ? null : 'STATUS')}
+              className={`h-11 px-4 bg-[#0a0f1c] border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${
+                activeDropdown === 'STATUS' ? 'border-blue-500 text-white' : 'border-white/10 text-slate-300 hover:bg-white/5'
+              }`}
+            >
+              Status: <span className="text-white">{statusFilter}</span> <ChevronDown size={14} className={`transition-transform duration-200 ${activeDropdown === 'STATUS' ? 'rotate-180' : ''}`} />
             </button>
-            <div className="absolute right-0 top-full mt-2 w-32 bg-[#0a0f1c] border border-white/10 rounded-xl shadow-2xl z-50 p-1 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200">
-              {(['ALL', RiskStatus.STABLE, RiskStatus.CAUTION, RiskStatus.RISKY] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => onStatusFilterChange(f)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                    statusFilter === f 
-                      ? 'bg-blue-600/10 text-blue-400' 
-                      : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
+            <AnimatePresence>
+              {activeDropdown === 'STATUS' && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-2 w-32 bg-[#0a0f1c] border border-white/10 rounded-xl shadow-2xl z-50 p-1 overflow-hidden"
+                  >
+                    {(['ALL', RiskStatus.STABLE, RiskStatus.CAUTION, RiskStatus.RISKY] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => { onStatusFilterChange(f); setActiveDropdown(null); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                          statusFilter === f 
+                            ? 'bg-blue-600/10 text-blue-400' 
+                            : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -265,8 +266,8 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                       </div>
                       <div>
                         <p className="font-extrabold text-white text-sm">{supplier.name}</p>
-                        <p className={`text-[10px] font-medium mt-0.5 transition-all ${user.plan === 'Business' || user.plan === 'Intermediate' ? 'text-slate-500' : 'text-slate-700 blur-[3px] select-none cursor-not-allowed'}`}>
-                          {user.plan === 'Business' || user.plan === 'Intermediate' ? (supplier.contactEmail || 'Contact not listed') : '••••••••@••••.com'}
+                        <p className="text-[10px] font-medium mt-0.5 text-slate-500">
+                          {supplier.contactEmail || 'Contact not listed'}
                         </p>
                       </div>
                     </div>
@@ -320,9 +321,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                 <div className="flex flex-col gap-1 text-[10px] text-slate-500 uppercase font-black tracking-widest">
                   <span className="flex items-center gap-1.5"><MapPin size={12} /> {supplier.location}</span>
                   <span className="flex items-center gap-1.5"><Tag size={12} /> {supplier.category}</span>
-                  {(user.plan === 'Business' || user.plan === 'Intermediate') && (
-                    <span className="flex items-center gap-1.5 text-blue-400/80 lowercase font-medium tracking-normal"><Mail size={12} /> {supplier.contactEmail || 'No contact provided'}</span>
-                  )}
+                  <span className="flex items-center gap-1.5 text-blue-400/80 lowercase font-medium tracking-normal"><Mail size={12} /> {supplier.contactEmail || 'No contact provided'}</span>
                 </div>
               </div>
               

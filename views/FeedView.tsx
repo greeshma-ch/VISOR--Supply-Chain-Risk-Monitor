@@ -69,12 +69,6 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
   });
 
   const handleAccessArchival = () => {
-    if (user.plan !== 'Business') {
-      toast.error("Access Denied", {
-        description: "Historical archival data is reserved for Business Tier accounts."
-      });
-      return;
-    }
     toast.info("Establishing encrypted handshake with VISOR Archival Vault... Accessing historical logistics metadata (2018-2023).");
     onNavigateToResources("VISOR ARCHIVAL VAULT");
   };
@@ -83,7 +77,7 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
     <div className="max-w-4xl mx-auto space-y-10 animate-in slide-in-from-bottom-8 duration-700">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
         <div>
-          <h2 className="text-4xl font-black text-white tracking-tight leading-none">Intelligence Signals</h2>
+          <h2 className="text-4xl font-black text-white tracking-tight leading-none uppercase">Predictive Risk Signals</h2>
           <div className="flex items-center gap-2 mt-2">
             <div className={`w-1.5 h-1.5 rounded-full ${isRefreshing ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'}`} />
             <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest leading-none">
@@ -138,78 +132,132 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
             'text-blue-400'
           ) : 'text-white';
 
-              const displayTitle = alert.title === "Operational Stability" 
-                ? `Operational Stability: ${alert.location}` 
-                : alert.title;
+          const displayTitle = alert.title === "Operational Stability" 
+            ? `Operational Stability: ${alert.location}` 
+            : alert.title;
 
-              return (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  key={alert.id} 
-                  onClick={() => onNavigateToResources(displayTitle)}
-                  className="bg-[#0a0f1c] p-6 sm:p-8 rounded-[2rem] border border-white/5 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full group cursor-pointer"
-                >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg transition-transform group-hover:scale-110 ${
-                      alert.severity === 'High' ? 'bg-rose-600 shadow-rose-900/20' : 'bg-amber-600 shadow-amber-900/20'
-                    } ${iconColor}`}>
-                      <Icon size={20} />
-                    </div>
-                    <div className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-500 transition-colors group/btn">
-                      <ExternalLink size={16} className="group-hover/btn:text-blue-400 transition-colors" />
-                    </div>
-                  </div>
+          return (
+            <motion.div 
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              key={alert.id} 
+              onClick={() => onNavigateToResources(displayTitle)}
+              className="bg-[#0a0f1c] p-6 sm:p-8 rounded-[2rem] border border-white/5 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full group cursor-pointer"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg transition-transform group-hover:scale-110 ${
+                  alert.severity === 'High' ? 'bg-rose-600 shadow-rose-900/20' : 
+                  alert.severity === 'Medium' ? 'bg-amber-600 shadow-amber-900/20' :
+                  'bg-blue-600 shadow-blue-900/20'
+                } ${iconColor}`}>
+                  <Icon size={20} />
+                </div>
+              </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
-                        alert.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
-                      }`}>
-                        {alert.severity}
-                      </span>
-                      <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1">
-                        <Clock size={12} className="text-slate-600" /> {getRelativeTime(alert.timestamp)}
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-black text-white tracking-tight leading-tight mb-4 group-hover:text-blue-400 transition-colors">{displayTitle}</h3>
-                    
-                    <div className="p-4 bg-white/[0.02] rounded-2xl mb-6 border border-white/5 shadow-inner">
-                      <p className="text-slate-400 text-[11px] leading-relaxed font-medium line-clamp-3">
-                        "{alert.summary}"
-                      </p>
-                    </div>
-                  </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                    alert.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 
+                    alert.severity === 'Medium' ? 'bg-amber-500/20 text-amber-400' :
+                    'bg-blue-500/10 text-blue-400'
+                  }`}>
+                    {alert.severity}
+                  </span>
+                  {alert.verificationStatus === 'verified' && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[8px] font-black uppercase tracking-widest flex items-center gap-1">
+                      <Zap size={8} /> Verified
+                    </span>
+                  )}
+                  <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1">
+                    <Clock size={12} className="text-slate-600" /> {getRelativeTime(alert.timestamp)}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-white tracking-tight leading-tight mb-4 group-hover:text-blue-400 transition-colors uppercase">{displayTitle}</h3>
+                
+                <div className="p-4 bg-white/[0.02] rounded-2xl mb-6 border border-white/5 shadow-inner group-hover:bg-white/[0.04] transition-colors relative overflow-hidden">
+                  {alert.sourceUrl && (
+                    <a 
+                      href={alert.sourceUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="absolute top-2 right-2 p-1.5 bg-white/5 hover:bg-blue-500/20 rounded-lg text-slate-500 hover:text-blue-400 transition-all z-10"
+                      title="View Source Feed"
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+                  <p className="text-slate-400 text-[11px] leading-relaxed font-medium line-clamp-3">
+                    "{alert.summary}"
+                  </p>
+                </div>
 
-                  <div className="flex flex-col gap-4 border-t border-white/5 pt-6">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Impact Zone</span>
-                      <span className="text-xs font-extrabold text-white uppercase truncate">{alert.location}</span>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Nodes Affected</span>
-                      <div className="flex flex-wrap gap-2">
-                        {alert.impactedSuppliers.map((id) => {
-                          const supplier = suppliers.find(s => s.id === id);
-                          const displayName = supplier ? supplier.name : id.toUpperCase();
-                          return (
-                            <div 
-                              key={id} 
-                              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[9px] font-black text-slate-300 shadow-sm hover:bg-white/10 transition-colors" 
-                              title={`Supplier: ${displayName}`}
-                            >
-                              {displayName}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                <div className="mb-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Zap size={10} className="text-blue-400" />
+                    <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Reasoning Synthesis</span>
                   </div>
-                </motion.div>
-              );
-            })}
+                  <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                    <p className="text-[9px] text-slate-500 italic leading-snug">
+                      {alert.severity === 'High' 
+                        ? "AI Flagged: Critical alignment of regional telemetry and news sentiment indicates high propagation risk across identified nodes."
+                        : alert.severity === 'Medium'
+                          ? "AI Analysis: Moderate volatility detected in regional logistics corridors. Operational variance suggests potential downstream impact."
+                          : "AI Observation: Telemetry suggests standard seasonal variance. Monitoring for escalation triggers."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4 border-t border-white/5 pt-6">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Impact Zone</span>
+                  <span className="text-xs font-extrabold text-white uppercase truncate">{alert.location}</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Nodes Affected</span>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const directlyImpacted = alert.impactedSuppliers;
+                      const geographicallyImpacted = suppliers
+                        .filter(s => {
+                          if (directlyImpacted.includes(s.id) || directlyImpacted.includes(s.name)) return false;
+                          if (!alert.location) return false;
+                          const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
+                          const alertParts = alert.location.toLowerCase().split(',').map(p => p.trim());
+                          return supplierParts.some(rp => alertParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+                        })
+                        .map(s => s.id);
+                      
+                      const allImpactedIds = [...directlyImpacted, ...geographicallyImpacted];
+
+                      if (allImpactedIds.length === 0) {
+                        return <span className="text-[9px] font-black text-slate-500 uppercase italic">Monitoring Regional Perimeters</span>;
+                      }
+
+                      return allImpactedIds.map((id) => {
+                        const supplier = suppliers.find(s => s.id === id);
+                        const displayName = supplier ? supplier.name : id.toUpperCase();
+                        return (
+                          <div 
+                            key={id} 
+                            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[9px] font-black text-slate-300 shadow-sm hover:bg-white/10 transition-colors" 
+                            title={`Supplier: ${displayName}`}
+                          >
+                            {displayName}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
       
       {filteredDisruptions.length === 0 && (
@@ -219,21 +267,11 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
       )}
 
       <div className="text-center pt-8 relative">
-        {user.plan !== 'Business' && (
-          <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1 bg-blue-600/10 border border-blue-500/20 rounded-full">
-            <Lock size={10} className="text-blue-400" />
-            <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Business Tier Required</span>
-          </div>
-        )}
         <motion.button 
-          whileHover={user.plan === 'Business' ? { scale: 1.05 } : {}}
-          whileTap={user.plan === 'Business' ? { scale: 0.95 } : {}}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={handleAccessArchival}
-          className={`px-8 py-4 font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all shadow-xl flex items-center gap-3 mx-auto ${
-            user.plan === 'Business' 
-              ? 'bg-white text-slate-900 hover:bg-slate-100' 
-              : 'bg-white/5 text-slate-500 cursor-not-allowed border border-white/5'
-          }`}
+          className="px-8 py-4 font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all shadow-xl flex items-center gap-3 mx-auto bg-white text-slate-900 hover:bg-slate-100"
         >
           <Archive size={16} /> Access Archival Data
         </motion.button>

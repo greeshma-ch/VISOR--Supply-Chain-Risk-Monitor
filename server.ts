@@ -23,7 +23,7 @@ async function startServer() {
 
   // API Route for weather alerts
   app.post("/api/weather/alerts", async (req, res) => {
-    console.log("Incoming weather alerts request for", req.body?.locations?.length, "locations");
+    console.log("Incoming weather alerts request. Body:", JSON.stringify(req.body).substring(0, 500));
     const { locations } = req.body; 
     const apiKey = process.env.OPENWEATHER_API_KEY;
 
@@ -32,16 +32,24 @@ async function startServer() {
       return res.status(200).json([]); 
     }
 
+    if (!locations || !Array.isArray(locations)) {
+      console.error("Invalid locations data in request body");
+      return res.status(400).json({ error: "Invalid locations data" });
+    }
+
     try {
-      console.log(`Fetching weather alerts for: ${locations.map((l: any) => l.name).join(', ')}`);
+      console.log(`Fetching weather alerts for ${locations.length} locations`);
       const alerts = await Promise.all(
         locations.map(async (loc: any) => {
           try {
-            const response = await fetch(
-              `https://api.openweathermap.org/data/2.5/weather?lat=${loc.lat}&lon=${loc.lon}&appid=${apiKey}&units=metric`
-            );
+            const url = `https://api.openweathermap.org/data/2.5/weather?lat=${loc.lat}&lon=${loc.lon}&appid=${apiKey}&units=metric`;
+            console.log(`Calling OpenWeather for ${loc.name}: ${url.replace(apiKey, 'REDACTED')}`);
+            const response = await fetch(url);
             
-            if (!response.ok) return null;
+            if (!response.ok) {
+              console.error(`OpenWeather API returned ${response.status} for ${loc.name}`);
+              return null;
+            }
             
             const data: any = await response.json();
             
@@ -122,15 +130,15 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     // Express 5 compatible catch-all syntax
-    app.get('/{*path}', (req, res) => {
+    app.get('*all', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  // Use process.env.PORT for deployment compatibility, falling back to 3000 for the host environment
-  const PORT = process.env.PORT || 3000;
+  // Use hardcoded port 3000 as required by the infrastructure
+  const PORT = 3000;
 
-  app.listen(Number(PORT), "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

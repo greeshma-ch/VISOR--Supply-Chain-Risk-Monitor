@@ -68,6 +68,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const riskyCount = getCountByStatus(RiskStatus.RISKY);
   const totalCount = channelSuppliers.length;
 
+  const copilotScore = totalCount > 0 
+    ? Math.round(((stableCount * 100) + (cautionCount * 60) + (riskyCount * 20)) / totalCount)
+    : 100;
+
+  // Calculate score trending (delta) - for now based on ratio of stable nodes
+  const delta = totalCount > 0 ? (stableCount / totalCount * 5).toFixed(1) : "0.0";
+
   const chartData = [
     { name: 'Stable', value: stableCount, color: '#059669', percentage: Math.round((stableCount/totalCount)*100) || 0, id: RiskStatus.STABLE },
     { name: 'Caution', value: cautionCount, color: '#D97706', percentage: Math.round((cautionCount/totalCount)*100) || 0, id: RiskStatus.CAUTION },
@@ -106,27 +113,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return null;
   };
 
-  const getSyncFrequency = () => {
-    switch (user.plan) {
-      case 'Basic': return '24h Cycle';
-      case 'Intermediate': return '6h Cycle';
-      case 'Business': return 'Real-time';
-      default: return '24h Cycle';
-    }
-  };
-
   return (
     <div className="space-y-6 sm:space-y-8 lg:space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">Executive Intelligence</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">Predictive Resilience Copilot</h2>
           <div className="flex items-center gap-3 mt-2">
             <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-widest ${isRefreshing ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
               <Activity size={10} className={isRefreshing ? 'animate-pulse' : ''} />
               {isRefreshing ? 'Telemetry Syncing' : 'Global Sync: Active'}
             </div>
             <p className="text-slate-500 font-medium flex items-center gap-2 text-xs uppercase tracking-widest">
-              <Clock size={14} className="text-slate-600" /> {getSyncFrequency()} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="text-slate-400 font-black">{categoryFilter}</span> Channel
+              <Clock size={14} className="text-slate-600" /> Real-time • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="text-slate-400 font-black">{categoryFilter}</span> Channel
             </p>
           </div>
         </div>
@@ -177,63 +175,126 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-10">
         <div className="xl:col-span-2 bg-[#080c18] p-6 sm:p-10 rounded-[2.5rem] border border-white/5 shadow-sm flex flex-col items-center justify-center relative overflow-hidden min-h-[500px] sm:min-h-[600px]">
-          <div className="absolute top-6 sm:top-10 left-6 sm:left-10">
-            <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Network Resilience</h3>
-            <p className="text-slate-500 font-medium text-xs sm:text-sm mt-1 uppercase tracking-widest">Node status distribution</p>
+          <div className="absolute top-6 sm:top-10 left-6 sm:left-10 z-10">
+            <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Resilience Matrix</h3>
+            <p className="text-slate-500 font-medium text-xs sm:text-sm mt-1 uppercase tracking-widest">Predictive Node distribution</p>
+          </div>
+
+          <div className="absolute top-6 sm:top-10 right-6 sm:right-10 z-10 flex flex-col items-end">
+            <div className="text-[8px] font-black text-blue-500 uppercase tracking-[0.2em] mb-1">Copilot Score</div>
+            {isRefreshing ? (
+              <div className="flex flex-col items-end gap-2">
+                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-1 w-24 rounded-full" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-black text-white">{copilotScore}</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">/100</span>
+                </div>
+                <div className="h-1 w-24 bg-white/5 rounded-full mt-2 overflow-hidden shadow-inner">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${copilotScore}%` }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-500" 
+                  />
+                </div>
+                <span className={`text-[7px] font-black ${parseFloat(delta) >= 2.5 ? 'text-emerald-500' : 'text-amber-500'} uppercase tracking-[0.3em] mt-1.5`}>
+                  {parseFloat(delta) >= 0 ? '+' : ''}{delta} pts vs previous sync
+                </span>
+              </>
+            )}
           </div>
           
-          <div className="w-full h-[250px] sm:h-[350px] md:h-[400px] mt-12 sm:mt-16">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="65%"
-                  outerRadius="90%"
-                  paddingAngle={6}
-                  dataKey="value"
-                  animationBegin={0}
-                  animationDuration={400}
-                  animationEasing="ease-out"
-                  stroke="none"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} className="outline-none" />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  content={<CustomTooltip />} 
-                  offset={20}
-                  wrapperStyle={{ outline: 'none', zIndex: 100 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-              <p className="text-4xl sm:text-6xl font-black text-white tracking-tighter">
-                {statusFilter === 'ALL' ? totalCount : channelSuppliers.filter(s => s.status === statusFilter).length}
-              </p>
-              <p className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
-                {statusFilter === 'ALL' ? 'Active Nodes' : `${statusFilter} Nodes`}
-              </p>
-            </div>
+          <div className="w-full h-[250px] sm:h-[350px] md:h-[400px] mt-12 sm:mt-16 relative">
+            {isRefreshing ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative w-48 h-48 sm:w-64 sm:h-64">
+                   <motion.div 
+                     animate={{ rotate: 360 }}
+                     transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                     className="absolute inset-0 rounded-full border-4 border-white/5 border-t-blue-500/40"
+                   />
+                   <motion.div 
+                     animate={{ rotate: -360 }}
+                     transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                     className="absolute inset-4 rounded-full border-4 border-white/5 border-t-indigo-500/20"
+                   />
+                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                     <Activity size={24} className="text-blue-500 mb-2 animate-pulse" />
+                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Calculating<br/>Resilience</p>
+                   </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="65%"
+                      outerRadius="90%"
+                      paddingAngle={6}
+                      dataKey="value"
+                      animationBegin={0}
+                      animationDuration={400}
+                      animationEasing="ease-out"
+                      stroke="none"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} className="outline-none" />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      content={<CustomTooltip />} 
+                      offset={20}
+                      wrapperStyle={{ outline: 'none', zIndex: 100 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+                  <p className="text-4xl sm:text-6xl font-black text-white tracking-tighter">
+                    {statusFilter === 'ALL' ? totalCount : channelSuppliers.filter(s => s.status === statusFilter).length}
+                  </p>
+                  <p className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
+                    {statusFilter === 'ALL' ? 'Active Nodes' : `${statusFilter} Nodes`}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-6 sm:gap-10 mt-8 justify-center">
-            {chartData.map((item, i) => (
-              <button 
-                key={i} 
-                onClick={() => onStatusFilterChange(item.id as RiskStatus)}
-                className={`flex items-center gap-3 transition-all ${statusFilter !== 'ALL' && statusFilter !== item.id ? 'opacity-30 scale-95' : 'scale-100'}`}
-              >
-                <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: item.color.length > 7 ? item.color.slice(0, 7) : item.color}} />
-                <div className="text-left">
-                  <p className="text-[10px] font-black text-white uppercase tracking-widest">{item.name}</p>
-                  <p className="text-[10px] font-bold text-slate-500">{item.percentage}%</p>
+            {isRefreshing ? (
+              [1, 2, 3].map(i => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="w-2.5 h-2.5 rounded-full" />
+                  <div>
+                    <Skeleton className="h-2 w-12 mb-1" />
+                    <Skeleton className="h-2 w-8" />
+                  </div>
                 </div>
-              </button>
-            ))}
+              ))
+            ) : (
+              chartData.map((item, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => onStatusFilterChange(item.id as RiskStatus)}
+                  className={`flex items-center gap-3 transition-all ${statusFilter !== 'ALL' && statusFilter !== item.id ? 'opacity-30 scale-95' : 'scale-100'}`}
+                >
+                  <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: item.color.length > 7 ? item.color.slice(0, 7) : item.color}} />
+                  <div className="text-left">
+                    <p className="text-[10px] font-black text-white uppercase tracking-widest">{item.name}</p>
+                    <p className="text-[10px] font-bold text-slate-500">{item.percentage}%</p>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -285,26 +346,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 : d.title;
 
               return (
-                <motion.button 
-                  whileHover={{ x: 8, backgroundColor: 'rgba(255,255,255,0.05)' }}
-                  whileTap={{ scale: 0.98 }}
-                  key={d.id} 
-                  onClick={() => onNavigateToResource(displayTitle)}
-                  className="w-full text-left p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group"
+                <motion.div 
+                  layout
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                  key={d.id}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
-                      d.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
-                    }`}>
-                      {d.severity} Priority
-                    </span>
-                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-1">
-                      <Clock size={10} /> {getRelativeTime(d.timestamp)}
-                    </span>
-                  </div>
-                  <h4 className="font-black text-white text-sm sm:text-base leading-tight mb-2 truncate group-hover:text-blue-400 transition-colors">{displayTitle}</h4>
-                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed font-medium">{d.summary}</p>
-                </motion.button>
+                  <motion.button 
+                    whileHover={{ x: 8, backgroundColor: 'rgba(255,255,255,0.05)' }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onNavigateToResource(displayTitle)}
+                    className="w-full text-left p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                        d.severity === 'High' ? 'bg-rose-500/20 text-rose-400' : 
+                        d.severity === 'Medium' ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-blue-500/10 text-blue-400 border border-blue-500/10'
+                      }`}>
+                        {d.severity} Priority
+                      </span>
+                      <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-1">
+                        <Clock size={10} /> {getRelativeTime(d.timestamp)}
+                      </span>
+                    </div>
+                    <h4 className="font-black text-white text-sm sm:text-base leading-tight mb-2 truncate group-hover:text-blue-400 transition-colors">{displayTitle}</h4>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed font-medium">{d.summary}</p>
+                  </motion.button>
+                </motion.div>
               );
             })}
           </div>

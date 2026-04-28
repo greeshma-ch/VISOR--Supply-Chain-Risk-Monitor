@@ -44,7 +44,6 @@ export const fetchWeatherAlerts = async (suppliers: Supplier[]): Promise<Disrupt
         } else {
           const text = await response.text();
           console.error(`Weather API returned ${response.status} (non-JSON):`, text.substring(0, 200));
-          // If it's a 500-level error, retry might help
           throw new Error(`Weather system returned ${response.status}. Expected JSON but got ${contentType.split(';')[0]}`);
         }
       }
@@ -59,8 +58,13 @@ export const fetchWeatherAlerts = async (suppliers: Supplier[]): Promise<Disrupt
       console.log(`Successfully fetched ${data.length} weather alerts`);
       return data;
     });
-  } catch (error) {
-    console.error('Weather service error details after retries:', error);
+  } catch (error: any) {
+    console.error('Weather service fatal error:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      cause: error.cause
+    });
     return [];
   }
 };

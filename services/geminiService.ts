@@ -38,9 +38,9 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
   }
 };
 
-export const generateSupplierIntelligence = async (supplier: Supplier, weatherData?: any, isSimulated: boolean = false): Promise<IntelligenceBrief> => {
+export const generateSupplierIntelligence = async (supplier: Supplier, weatherData?: any, isSimulated: boolean = false, relevantDisruptions: Disruption[] = []): Promise<IntelligenceBrief> => {
   // Check cache first
-  const cacheKey = `${supplier.id}-${isSimulated}`;
+  const cacheKey = `${supplier.id}-${isSimulated}-${relevantDisruptions.length}`;
   const cached = intelCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
     return cached.data;
@@ -52,20 +52,39 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     : "Search for current weather.";
 
   const simulationContext = isSimulated 
-    ? "SIMULATION: Total infrastructure collapse event."
+    ? `CRISIS MODE OVERRIDE: NODE-LEVEL STRESS TEST ACTIVE.
+    - SCENARIO: Tier-1 infrastructure collapse at this node's exact coordinates.
+    - REASONING MODE: Intensified risk analysis. Assume stressed operational conditions.
+    - CASCADING IMPACTS: Analyze propagation to dependent routes and hidden downstream vulnerabilities.
+    - ROLE: Act as a crisis decision support system. Strategic, high-signal, adaptive.
+    - STATUS: You MUST output 'RISKY' as the ground truth for this simulation.`
     : "";
+
+  const disruptionContext = relevantDisruptions.length > 0 
+    ? `CONSIDER THESE REAL-TIME DISRUPTIONS:
+    ${relevantDisruptions.map(d => `- [${d.severity}] ${d.title}: ${d.summary} (${d.location})`).join('\n')}`
+    : "No major disruptions detected in official feeds.";
 
   const prompt = `Role: Precision Logistics Engine. Today is ${currentDate}.
   Location: ${supplier.location}
   Supplier Category: ${supplier.category}
+  Current Registry Status: ${supplier.status}
   
   ${simulationContext}
   ${weatherContext}
+  ${disruptionContext}
 
-  STRICT GROUNDING:
-  1. Default to STABLE. Only escalate if news from ${currentDate} defines a disruption.
-  2. No Disruption? Report "Operational Stability" in summary and list all news as STABLE.
-  3. Speed is priority. Max 2 sentence analysis.`;
+  ${isSimulated ? `STRICT GROUNDING:
+  1. Default to STABLE for real-world reporting. IF simulationContext is active, OVERRIDE all logic and simulate a high-stakes logistics failure.
+  2. If simulating, explicitly identify "Node-Level Propagation Risks" and "Hidden Downstream Vulnerabilities".
+  3. Mitigation must be actionable: alternate routing, fallback nodes, and recovery priorities.
+  4. Speed is priority. Max 2 sentence analytical briefing.
+  5. For simulation, ignore real-world stability and prioritize the what-if scenario reasoning.`
+  : `STRICT GROUNDING:
+  1. Default to STABLE for real-world reporting.
+  2. Only escalate if news from ${currentDate} defines a disruption OR if prioritized real-time disruptions above are present.
+  3. Validate the "Current Registry Status" of ${supplier.status} against the evidence.
+  4. Speed is priority. Max 2 sentence analysis.`}`;
 
   try {
     const response = await withRetry(() => ai.models.generateContent({
@@ -101,7 +120,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
           required: ["vectorSummary", "weatherStatus", "suggestedStatus", "todayFeed", "recentFeed", "historicalContext", "mitigationSteps", "confidenceScore", "alternativeSuppliers"]
         }
       },
-    }));
+    } as any));
 
     const jsonText = response.text || "{}";
     const data = JSON.parse(jsonText);
@@ -170,12 +189,13 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
   HQ: ${hqLocation}. Nodes in: ${nodeRegions}.
   Suppliers: ${supplierList}.
 
-  Search global events from last 48 hours impacting these regions.
+  Search global events from last 48 hours impacting these regions. 
   
-  Instructions:
-  1. Priority: HQ and Registered Regions.
-  2. Grounding: If no disruption, report "Operational Stability: [Region]" and mark severity as "Low".
-  3. Accuracy: List specific impacted supplier names.
+  STRICT GROUNDING:
+  1. Every "High" or "Medium" disruption MUST be linked to a verifiable news or weather event from the last 48 hours.
+  2. Grounding: If no disruption, report "Operational Stability: [Region]" and mark severity as "Low". CRITICAL: Do NOT mark stability as Medium or High.
+  3. Impact Linkage: Explain exactly HOW the event affects supply chain (e.g., "Closure of Port X disrupts delivery for Supplier Y").
+  4. Node Accuracy: Explicitly name impacted suppliers from the list if they are in the blast radius.
   
   Output JSON format.`;
 
@@ -201,16 +221,18 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
                   location: { type: Type.STRING },
                   timestamp: { type: Type.STRING },
                   summary: { type: Type.STRING },
-                  impactedSuppliers: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  impactedSuppliers: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  sourceUrl: { type: Type.STRING, description: "Direct link to news/weather source" },
+                  verificationStatus: { type: Type.STRING, enum: ["verified", "unverified"] }
                 },
-                required: ["id", "title", "type", "severity", "location", "timestamp", "summary", "impactedSuppliers"]
+                required: ["id", "title", "type", "severity", "location", "timestamp", "summary", "impactedSuppliers", "sourceUrl", "verificationStatus"]
               }
             }
           },
           required: ["disruptions"]
         }
       },
-    }));
+    } as any));
 
     const jsonText = response.text || "{\"disruptions\": []}";
     const data = JSON.parse(jsonText);
@@ -243,10 +265,24 @@ export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: bo
     return cached.data;
   }
 
-  const prompt = `Analytical Task: Impact assessment for ${supplier.name} in ${supplier.location}.
-  ${isSimulated ? "SIMULATION: Identify critical infrastructure failure." : "Analyze current regional throughput constraints."}
-  
-  Return JSON: { bottleneck, estDelay, strategicAction }`;
+  const prompt = isSimulated
+    ? `CRITICAL REASONING MODE: Impact assessment for ${supplier.name} (${supplier.category}) at ${supplier.location}.
+       SCENARIO: Severe network severance and logistics blackout.
+       
+       STRESS TEST REQUIREMENTS:
+       1. Cascading Analysis: Identify what could fail next if this state persists.
+       2. Propagation Scenario: Predict the primary disruption vector to other nodes.
+       3. Operator Blind Spots: Highlight high-risk variables often ignored in this scenario.
+       4. Mitigation: Suggest non-obvious contingency actions (e.g., specific secondary channel activation).
+       
+       STYLE: Crisis decision support. No filler. Analytical and strategic.`
+    : `Analytical Task: Impact assessment for ${supplier.name} in ${supplier.location}.
+       Analyze current regional logistics and infrastructure status using real-time search.
+       
+       STRICT GROUNDING:
+       1. Base analysis ONLY on recent news, weather reports, or port/traffic data from the last 72 hours. 
+       2. If no verifiable disruption is found, report "Baseline Throughput" with 0 delay.
+       3. Strategic action must be specific to the identified bottleneck.`;
 
   try {
     const result = await withRetry(() => ai.models.generateContent({
@@ -265,7 +301,7 @@ export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: bo
           required: ["bottleneck", "estDelay", "strategicAction"]
         }
       },
-    }));
+    } as any));
 
     const data = JSON.parse(result.text || "{}");
     impactCache.set(cacheKey, { data, timestamp: Date.now() });
@@ -294,7 +330,7 @@ export const groundMapLocation = async (supplier: Supplier) => {
       config: {
         tools: [{ googleMaps: {} }, { googleSearch: {} }]
       },
-    });
+    } as any);
 
     const text = response.text || "";
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];

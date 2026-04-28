@@ -52,8 +52,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
       role: role as Role, 
       sectors: [selectedSector], 
       hqLocation,
-      hqCoordinates: getCityCoords(hqLocation),
-      plan: 'Business'
+      hqCoordinates: getCityCoords(hqLocation)
     });
   };
 
@@ -62,7 +61,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
       <div className="w-full max-w-md bg-[#0a0f1c] rounded-[2rem] shadow-2xl border border-white/5 overflow-hidden animate-in zoom-in-95 duration-500 my-4">
         <div className="p-6 sm:p-8 text-center bg-blue-600/5 border-b border-white/5">
           <Logo className="justify-center mb-1" />
-          <p className="text-blue-500/60 mt-1 text-[10px] font-bold uppercase tracking-[0.3em]">Enterprise Intelligence Protocol</p>
+          <p className="text-blue-500/60 mt-1 text-[10px] font-black uppercase tracking-[0.3em]">Predictive Resilience Copilot</p>
           {error && (
             <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
               <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">{error}</p>
