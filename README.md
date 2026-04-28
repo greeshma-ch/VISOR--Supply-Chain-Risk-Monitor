@@ -150,9 +150,9 @@ npm run dev
 
 ---
 <div align="center">
-<img width="900" height="575" alt="dashboard" src="https://github.com/user-attachments/assets/03732f93-b84d-42d9-bf60-b8e508223ac8" />
+<img width="900" height="475" alt="dashboard" src="https://github.com/user-attachments/assets/03732f93-b84d-42d9-bf60-b8e508223ac8" />
    <br><br>
-<img width="900" height="575" alt="Map Anlaytics" src="https://github.com/user-attachments/assets/a5d174da-4dbe-43f3-9f4d-f67c130776dd" />
+<img width="900" height="475" alt="Map Anlaytics" src="https://github.com/user-attachments/assets/a5d174da-4dbe-43f3-9f4d-f67c130776dd" />
      <br><br>
-<img width="900" height="575" alt="Risk Intelligence Briefing" src="https://github.com/user-attachments/assets/8286b481-6d16-4ff2-9f3d-78023dad775e" />
+<img width="900" height="475" alt="Risk Intelligence Briefing" src="https://github.com/user-attachments/assets/8286b481-6d16-4ff2-9f3d-78023dad775e" />
 </div>
