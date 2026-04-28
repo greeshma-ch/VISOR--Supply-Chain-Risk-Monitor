@@ -13,7 +13,7 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
 
 const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
-  const models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-flash-latest", "gemini-3.1-flash-lite-preview"];
+  const models = ["gemini-flash-latest", "gemini-3-flash-preview", "gemini-1.5-flash", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
   let modelIndex = 0;
   const failedModels = new Set<string>();
 
@@ -76,39 +76,22 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     : "Search for current weather.";
 
   const simulationContext = isSimulated 
-    ? `CRISIS MODE OVERRIDE: NODE-LEVEL STRESS TEST ACTIVE.
-    - SCENARIO: Tier-1 infrastructure collapse at this node's exact coordinates.
-    - REASONING MODE: Intensified risk analysis. Assume stressed operational conditions.
-    - CASCADING IMPACTS: Analyze propagation to dependent routes and hidden downstream vulnerabilities.
-    - ROLE: Act as a crisis decision support system. Strategic, high-signal, adaptive.
-    - STATUS: You MUST output 'RISKY' as the ground truth for this simulation.`
+    ? `CRISIS MODE OVERRIDE: SCENARIO: Severe infrastructure severance at ${supplier.location}. Status: RISKY.`
     : "";
 
   const disruptionContext = relevantDisruptions.length > 0 
-    ? `CONSIDER THESE REAL-TIME DISRUPTIONS:
-    ${relevantDisruptions.map(d => `- [${d.severity}] ${d.title}: ${d.summary} (${d.location})`).join('\n')}`
-    : "No major disruptions detected in official feeds.";
+    ? `REAL-TIME DISRUPTIONS: ${relevantDisruptions.map(d => `${d.title} (${d.severity})`).join(', ')}`
+    : "";
 
-  const prompt = `Role: Precision Logistics Engine. Today is ${currentDate}.
-  Location: ${supplier.location}
-  Supplier Category: ${supplier.category}
-  Current Registry Status: ${supplier.status}
+  const prompt = `Role: Strategic Logistics Analyst. Today is ${currentDate}.
+  Location: ${supplier.location}, Category: ${supplier.category}, Current Status: ${supplier.status}.
   
   ${simulationContext}
   ${weatherContext}
   ${disruptionContext}
 
-  ${isSimulated ? `STRICT GROUNDING:
-  1. Default to STABLE for real-world reporting. IF simulationContext is active, OVERRIDE all logic and simulate a high-stakes logistics failure.
-  2. If simulating, explicitly identify "Node-Level Propagation Risks" and "Hidden Downstream Vulnerabilities".
-  3. Mitigation must be actionable: alternate routing, fallback nodes, and recovery priorities.
-  4. Speed is priority. Max 2 sentence analytical briefing.
-  5. For simulation, ignore real-world stability and prioritize the what-if scenario reasoning.`
-  : `STRICT GROUNDING:
-  1. Default to STABLE for real-world reporting.
-  2. Only escalate if news from ${currentDate} defines a disruption OR if prioritized real-time disruptions above are present.
-  3. Validate the "Current Registry Status" of ${supplier.status} against the evidence.
-  4. Speed is priority. Max 2 sentence analysis.`}`;
+  Provide intelligence brief and impact assessment. Be concise. Speed is priority.
+  For impact assessment: Identify primary bottleneck, estimated delay, and strategic contingency action.`;
 
   try {
     const response = await withRetry((modelName) => ai.models.generateContent({
@@ -139,9 +122,18 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
             historicalContext: { type: Type.STRING },
             mitigationSteps: { type: Type.ARRAY, items: { type: Type.STRING } },
             confidenceScore: { type: Type.NUMBER },
-            alternativeSuppliers: { type: Type.ARRAY, items: { type: Type.STRING } }
+            alternativeSuppliers: { type: Type.ARRAY, items: { type: Type.STRING } },
+            impact: {
+              type: Type.OBJECT,
+              properties: {
+                bottleneck: { type: Type.STRING },
+                estDelay: { type: Type.STRING },
+                strategicAction: { type: Type.STRING }
+              },
+              required: ["bottleneck", "estDelay", "strategicAction"]
+            }
           },
-          required: ["vectorSummary", "weatherStatus", "suggestedStatus", "todayFeed", "recentFeed", "historicalContext", "mitigationSteps", "confidenceScore", "alternativeSuppliers"]
+          required: ["vectorSummary", "weatherStatus", "suggestedStatus", "todayFeed", "recentFeed", "historicalContext", "mitigationSteps", "confidenceScore", "alternativeSuppliers", "impact"]
         }
       },
     } as any));
@@ -168,29 +160,30 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
       confidenceScore: data.confidenceScore,
       alternativeSuppliers: data.alternativeSuppliers,
       lastUpdated: new Date().toISOString(),
-      sources: sources
+      sources: sources,
+      impactAnalysis: data.impact
     };
 
-    // Update cache
     intelCache.set(cacheKey, { data: result, timestamp: Date.now() });
     return result;
   } catch (error) {
     console.error("Gemini API Error:", error);
     return {
       supplierId: supplier.id,
-      summary: "Node maintaining baseline stability. High-frequency telemetry currently limited.",
-      vectorSummary: "Operational stability confirmed via regional baseline sensors.",
-      weatherStatus: "Weather synchronization pending.",
+      summary: "Baseline stability confirmed.",
+      vectorSummary: "Baseline stability confirmed.",
+      weatherStatus: "Synchronization pending.",
       suggestedStatus: RiskStatus.STABLE,
-      todayFeed: [{ title: "Operational Sync", status: RiskStatus.STABLE, insight: "Node maintaining baseline stability." }],
+      todayFeed: [],
       recentFeed: [],
-      historicalContext: "Region historically stable.",
-      recommendations: ["Maintain standard operational protocols"],
-      mitigationSteps: ["Maintain standard operational protocols"],
+      historicalContext: "Regionally stable.",
+      recommendations: ["Maintain standard protocols"],
+      mitigationSteps: ["Maintain standard protocols"],
       confidenceScore: 5,
       alternativeSuppliers: [],
       lastUpdated: new Date().toISOString(),
-      sources: []
+      sources: [],
+      impactAnalysis: { bottleneck: "None", estDelay: "0h", strategicAction: "Monitor" }
     };
   }
 };

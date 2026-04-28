@@ -56,6 +56,7 @@ export interface IntelligenceBrief {
   alternativeSuppliers: string[];
   lastUpdated: string;
   sources: { title: string; uri: string }[];
+  impactAnalysis?: ImpactAnalysis;
 }
 
 export interface ImpactAnalysis {

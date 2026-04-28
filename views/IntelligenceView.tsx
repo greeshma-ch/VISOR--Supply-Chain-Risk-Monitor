@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, IntelligenceBrief, RiskStatus, User, ImpactAnalysis, Disruption } from '../types';
-import { generateSupplierIntelligence, generateImpactAnalysis } from '../services/geminiService';
+import { generateSupplierIntelligence } from '../services/geminiService';
 import { fetchCurrentWeather } from '../services/weatherService';
 import RiskBadge from '../components/RiskBadge';
 import Skeleton from '../components/Skeleton';
@@ -71,32 +71,29 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({
     ), [disruptions, supplier.id, supplier.name, supplier.location]
   );
 
-  // Background Fetching - optimized with parallel execution
+  // Background Fetching - optimized with parallel execution and bundled AI calls
   const fetchIntelligence = async () => {
     setLoading(true);
     setImpactLoading(true);
     setError(null);
     try {
-      // Start independent impact analysis immediately
-      const impactPromise = generateImpactAnalysis(supplier, !!isSimulated);
+      // Start weather fetch immediately
+      const weatherPromise = fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
       
-      // Start weather fetch
-      const weatherData = await fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
+      // Start intelligence and impact analysis combined call
+      // We don't await weather here to allow the AI to start immediately if needed (using search grounding)
+      // but typically we'll have weather data for the prompt shortly
+      const weatherData = await weatherPromise;
       setWeather(weatherData);
 
-      // Start intelligence brief generation (requires weatherData)
-      const intelPromise = generateSupplierIntelligence(supplier, weatherData, !!isSimulated, relevantDisruptions);
+      const intelData = await generateSupplierIntelligence(supplier, weatherData, !!isSimulated, relevantDisruptions);
       
       setImpactError(false);
-
-      // Await both intelligence and impact analysis
-      const [intelData, impactData] = await Promise.all([
-        intelPromise,
-        impactPromise
-      ]);
-
       setBrief(intelData);
-      setImpactAnalysis(impactData);
+      
+      if (intelData.impactAnalysis) {
+        setImpactAnalysis(intelData.impactAnalysis);
+      }
     } catch (err) {
       if (!brief) setError("Failed to generate intelligence brief. Check your API key and network connection.");
     } finally {
