@@ -124,16 +124,6 @@ Deploy using Google Cloud Run.
 
 ---
 
-## Future Enhancements
-- Sector-specific adaptive dashboards  
-- Mitigation optimization  
-- Supplier dependency graph modeling  
-- Adaptive resilience scoring  
-- Inventory impact estimation  
-- Automated alert escalation workflows
-
----
-
 # 🧠 How It Works
 
 ```text
@@ -163,7 +153,7 @@ Node Crisis Simulation
 
 ### Authentication View
 
-   <img width="699" height="935" alt="Screenshot 2026-04-28 234319" src="https://github.com/user-attachments/assets/e2a7fb94-3f14-4218-a32b-6f33bb25ad29" />
+   <img width="699" height="749" alt="Screenshot 2026-04-28 234319" src="https://github.com/user-attachments/assets/e2a7fb94-3f14-4218-a32b-6f33bb25ad29" />
 <br><br>
 
 ### Dashboard View
@@ -192,6 +182,15 @@ Node Crisis Simulation
 </div>
 ---
 
+## Future Enhancements
+- Sector-specific adaptive dashboards  
+- Mitigation optimization  
+- Supplier dependency graph modeling  
+- Adaptive resilience scoring  
+- Inventory impact estimation  
+- Automated alert escalation workflows
+
+---
 
 ## Vision
 Build intelligent tools that help supply chains become more resilient, adaptive and proactive under disruption.
