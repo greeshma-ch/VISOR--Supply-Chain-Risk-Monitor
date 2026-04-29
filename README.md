@@ -153,7 +153,7 @@ Node Crisis Simulation
 
 ### Authentication View
 
-   <img width="60%" alt="Screenshot 2026-04-28 234319" src="https://github.com/user-attachments/assets/e2a7fb94-3f14-4218-a32b-6f33bb25ad29" />
+   <img width="50%" alt="Screenshot 2026-04-28 234319" src="https://github.com/user-attachments/assets/e2a7fb94-3f14-4218-a32b-6f33bb25ad29" />
 <br><br>
 
 ### Dashboard View
