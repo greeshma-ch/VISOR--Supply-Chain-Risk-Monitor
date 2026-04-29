@@ -153,7 +153,7 @@ Node Crisis Simulation
 
 ### Authentication View
 
-   <img width="699" height="749" alt="Screenshot 2026-04-28 234319" src="https://github.com/user-attachments/assets/e2a7fb94-3f14-4218-a32b-6f33bb25ad29" />
+   <img width="60%" alt="Screenshot 2026-04-28 234319" src="https://github.com/user-attachments/assets/e2a7fb94-3f14-4218-a32b-6f33bb25ad29" />
 <br><br>
 
 ### Dashboard View
@@ -165,7 +165,7 @@ Node Crisis Simulation
   
 <br><br>
 
-###Node Analysis and Crisis Mode
+### Node Analysis and Crisis Mode
 
  <img width="48%" alt="Screenshot 2026-04-28 234417" src="https://github.com/user-attachments/assets/16d59f5a-b039-429d-89c9-19ebe14e75ed" />
 
@@ -176,7 +176,7 @@ Node Crisis Simulation
 
 ### Map Visualization
 
-<img width="1902" height="972" alt="Screenshot 2026-04-28 234456" src="https://github.com/user-attachments/assets/bd8c69e7-69f8-44ac-aefd-28bcbd0aca47" />
+<img width="65%" alt="Screenshot 2026-04-28 234456" src="https://github.com/user-attachments/assets/bd8c69e7-69f8-44ac-aefd-28bcbd0aca47" />
 
 
 </div>
