@@ -57,8 +57,8 @@ export const parseGeminiResponse = (text: string): any => {
   }
 };
 
-const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
-  const models = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
+  const models = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
   let modelIndex = 0;
   const failedModels = new Set<string>();
 
@@ -94,7 +94,7 @@ const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, 
         }
 
         const jitter = Math.random() * 1500;
-        const nextDelay = Math.min((isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter, 6000);
+        const nextDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
         
         console.warn(`Gemini Service ${errorType} on ${currentModel}. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms... (${remainingRetries} retries left)`);
         await new Promise(resolve => setTimeout(resolve, nextDelay));
@@ -115,7 +115,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     return cached.data;
   }
 
-  const todayISO = new Date().toISOString().split('T')[0];
+  const currentDate = new Date().toLocaleDateString();
   const weatherContext = weatherData 
     ? `Current weather at ${supplier.location}: ${weatherData.weather[0].description}, ${weatherData.main.temp}°C.`
     : "Search for current weather.";
@@ -128,7 +128,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     ? `REAL-TIME DISRUPTIONS: ${relevantDisruptions.map(d => `${d.title} (${d.severity})`).join(', ')}`
     : "No major disruptions detected in official feeds.";
 
-  const prompt = `Role: Strategic Logistics Analyst. Today is ${todayISO}.
+  const prompt = `Role: Strategic Logistics Analyst. Today is ${currentDate}.
   Location: ${supplier.location}, Category: ${supplier.category}, Resolved Risk Status: ${supplier.status}.
   
   ${simulationContext}
@@ -136,8 +136,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
   ${disruptionContext}
 
   Task: Provide a high-fidelity intelligence brief and impact assessment that justifies the Resolved Risk Status of ${supplier.status}.
-  Ground your reasoning in the real-time weather and feed analysis above.
-  GROUNDING WINDOW: For todayFeed items, search ONLY events from ${todayISO}. For recentFeed, use the last 7 days.
+  Ground your reasoning in the real-time weather and feed analysis above. 
   If the status is CAUTION or RISKY, identify exactly which signal (weather or feed) triggered the escalation.
   If STABLE, confirm baseline operational integrity despite local conditions.`;
 
@@ -169,7 +168,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
             recentFeed: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, status: { type: Type.STRING }, insight: { type: Type.STRING } } } },
             historicalContext: { type: Type.STRING },
             mitigationSteps: { type: Type.ARRAY, items: { type: Type.STRING } },
-            confidenceScore: { type: Type.NUMBER, description: "Integer 0-100 derived strictly from search grounding evidence for this region on this date. 90-100: multiple verified live sources directly confirm the status. 70-89: one strong verified source. 50-69: indirect or partial evidence only. Below 50: no direct evidence found, status inferred from historical or regional patterns." },
+            confidenceScore: { type: Type.NUMBER },
             alternativeSuppliers: { type: Type.ARRAY, items: { type: Type.STRING } },
             impact: {
               type: Type.OBJECT,
@@ -246,15 +245,15 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
     return cached.data;
   }
 
-  const todayISO = new Date().toISOString().split('T')[0];
+  const currentDate = new Date().toLocaleDateString();
   const nodeRegionsList = Array.from(new Set(suppliers.map(s => s.location))).join(", ");
   const supplierList = suppliers.slice(0, 15).map(s => `${s.name} (${s.location})`).join("; "); 
   
-  const prompt = `Role: Real-time Risk Analyst. Today: ${todayISO}.
+  const prompt = `Role: Real-time Risk Analyst. Today: ${currentDate}.
   HQ: ${hqLocation}. Nodes in: ${nodeRegions}.
   Suppliers: ${supplierList}.
 
-  Search for real news and weather events from the last 48 hours (on or after ${todayISO}) impacting these regions. 
+  Search global events from last 48 hours impacting these regions. 
   
   STRICT GROUNDING:
   1. Every "High" or "Medium" disruption MUST be linked to a verifiable news or weather event from the last 48 hours.
@@ -305,11 +304,7 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
     // Ensure data.disruptions exists and is an array (robust validation)
     const rawDisruptions = Array.isArray(data?.disruptions) ? data.disruptions : [];
 
-    // Exclude Low-severity stability entries — they are informational only and must
-    // not enter the disruptions array where riskEngine would match them to suppliers
-    const actionable = rawDisruptions.filter((d: any) => d.severity !== 'Low');
-
-    const result = actionable.map((d: any) => ({
+    const result = rawDisruptions.map((d: any) => ({
       ...d,
       impactedSuppliers: Array.isArray(d.impactedSuppliers) 
         ? d.impactedSuppliers.map((name: string) => {

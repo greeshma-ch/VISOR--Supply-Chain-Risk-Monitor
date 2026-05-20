@@ -13,9 +13,6 @@ export const resolveSupplierStatus = (
 
   // Find all matching disruptions (Direct ID match or Region match)
   const matching = disruptions.filter(d => {
-    // Stability signals (Low severity) must never escalate a supplier's status
-    if (d.severity === 'Low') return false;
-
     const isDirectlyImpacted = d.impactedSuppliers.includes(supplier.id) || d.impactedSuppliers.includes(supplier.name);
     if (isDirectlyImpacted) return true;
 
