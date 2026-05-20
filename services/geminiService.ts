@@ -116,7 +116,7 @@ const safeParseJson = (text: string | undefined): any => {
   }
 };
 
-const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
   const models = [
     "gemini-3.5-flash",
     "gemini-2.0-flash",
@@ -133,22 +133,13 @@ const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, 
     }
     
     const currentModel = models[modelIndex];
-    let timeoutId: NodeJS.Timeout | undefined;
     try {
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error("Gemini API call timed out after 12000ms"));
-        }, 12000);
-      });
-      const result = await Promise.race([fn(currentModel), timeoutPromise]);
-      if (timeoutId) clearTimeout(timeoutId);
-      return result;
+      return await fn(currentModel);
     } catch (error: any) {
-      if (timeoutId) clearTimeout(timeoutId);
       const errorString = error?.message || JSON.stringify(error) || '';
       const isQuotaError = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota');
       const isServiceUnavailable = errorString.includes('503') || errorString.includes('high demand') || errorString.includes('UNAVAILABLE');
-      const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch') || errorString.includes('timed out');
+      const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch');
       const isModelNotFoundError = errorString.includes('404') || errorString.includes('not found') || errorString.includes('no longer available') || errorString.includes('not supported');
       
       if (isModelNotFoundError) {
@@ -160,20 +151,18 @@ const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, 
         if (isQuotaError) errorType = 'Quota Exceeded';
         if (isServiceUnavailable) errorType = 'High Demand (503)';
         if (isModelNotFoundError) errorType = 'Model Not Found/Available (404)';
-        if (errorString.includes('timed out')) errorType = 'Timeout (12s)';
 
-        // Rotate model on 503, 404 or Timeout
-        if (isServiceUnavailable || isModelNotFoundError || errorString.includes('timed out')) {
+        // Rotate model on 503 or 404
+        if (isServiceUnavailable || isModelNotFoundError) {
           modelIndex = (modelIndex + 1) % models.length;
         }
 
-        const jitter = Math.random() * 1000;
-        const calculatedDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
-        const nextDelay = Math.min(5000, calculatedDelay);
+        const jitter = Math.random() * 1500;
+        const nextDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
         
         console.warn(`Gemini Service ${errorType} on ${currentModel}. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms... (${remainingRetries} retries left)`);
         await new Promise(resolve => setTimeout(resolve, nextDelay));
-        return execute(remainingRetries - 1, Math.min(5000, nextDelay * 1.2));
+        return execute(remainingRetries - 1, nextDelay * 1.2);
       }
       throw error;
     }

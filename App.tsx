@@ -109,27 +109,15 @@ const App: React.FC = () => {
   }, [suppliers, simulatedRiskyNodes, disruptions, manualStatusOverrides]);
 
   const isInitialMount = React.useRef(true);
-  const lastRefreshRequestId = React.useRef(0);
-  const suppliersRef = React.useRef(suppliers);
-
-  useEffect(() => {
-    suppliersRef.current = suppliers;
-  }, [suppliers]);
 
   const refreshDisruptions = async () => {
-    if (!user) return;
-    const currentSuppliers = suppliersRef.current;
-    const requestId = ++lastRefreshRequestId.current;
+    if (isRefreshing || !user) return;
     setIsRefreshing(true);
     try {
       const [dynamicDisruptions, weatherAlerts] = await Promise.all([
-        generateGlobalRiskSignals(user, currentSuppliers),
-        fetchWeatherAlerts(currentSuppliers)
+        generateGlobalRiskSignals(user, suppliers),
+        fetchWeatherAlerts(suppliers)
       ]);
-      
-      if (requestId !== lastRefreshRequestId.current) {
-        return;
-      }
       
       // Combine and filter duplicates by title and location
       const combined = [...dynamicDisruptions, ...weatherAlerts].filter((v, i, a) => 
@@ -161,9 +149,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Refresh Error:", error);
     } finally {
-      if (requestId === lastRefreshRequestId.current) {
-        setIsRefreshing(false);
-      }
+      setIsRefreshing(false);
     }
   };
 
@@ -173,10 +159,15 @@ const App: React.FC = () => {
       isInitialMount.current = false;
     }
     
+    // Immediate resync on view change or user initialization if not already done
+    if (user && !isRefreshing && disruptions.length === MOCK_DISRUPTIONS.length) {
+       refreshDisruptions();
+    }
+
     // Synchronize every 2 minutes
     const interval = setInterval(refreshDisruptions, 120000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [suppliers.length, user]);
 
   const handleAuthComplete = (userData: User) => {
     setUser(userData);

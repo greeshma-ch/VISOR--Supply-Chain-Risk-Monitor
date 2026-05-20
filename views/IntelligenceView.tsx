@@ -83,15 +83,19 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({
     setImpactLoading(true);
     setError(null);
     try {
-      // Run weather fetch and Gemini intelligence generation in parallel using Promise.all
-      const [weatherData, intelData] = await Promise.all([
-        fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]),
-        generateSupplierIntelligence(supplier, undefined, !!isSimulated, relevantDisruptions)
-      ]);
+      // Start weather fetch immediately
+      const weatherPromise = fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
       
+      // Start intelligence and impact analysis combined call
+      // We don't await weather here to allow the AI to start immediately if needed (using search grounding)
+      // but typically we'll have weather data for the prompt shortly
+      const weatherData = await weatherPromise;
       setWeather(weatherData);
-      setBrief(intelData);
+
+      const intelData = await generateSupplierIntelligence(supplier, weatherData, !!isSimulated, relevantDisruptions);
+      
       setImpactError(false);
+      setBrief(intelData);
       
       if (intelData.impactAnalysis) {
         setImpactAnalysis(intelData.impactAnalysis);
