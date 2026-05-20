@@ -2,7 +2,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { IntelligenceBrief, Supplier, ImpactAnalysis, Disruption, RiskStatus, User } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY || '',
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build'
+    }
+  }
+});
 
 // In-memory cache to reduce API calls and mitigate quota hits
 const intelCache = new Map<string, { data: IntelligenceBrief; timestamp: number }>();
@@ -12,8 +19,110 @@ const impactCache = new Map<string, { data: ImpactAnalysis; timestamp: number }>
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
 
+const safeParseJson = (text: string | undefined): any => {
+  if (!text) return null;
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/, "").trim();
+  }
+
+  // 1. Try parsing directly in case it's completely valid JSON
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    // Proceed to extraction/repair fallbacks
+  }
+  
+  // 2. Robust balanced JSON structure extractor
+  let firstBrace = cleaned.indexOf('{');
+  let firstBracket = cleaned.indexOf('[');
+  
+  let startIdx = -1;
+  let endChar = '';
+  let startChar = '';
+  
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    startIdx = firstBrace;
+    startChar = '{';
+    endChar = '}';
+  } else if (firstBracket !== -1) {
+    startIdx = firstBracket;
+    startChar = '[';
+    endChar = ']';
+  }
+  
+  let extracted = cleaned;
+  if (startIdx !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let foundEnd = -1;
+    
+    for (let i = startIdx; i < cleaned.length; i++) {
+      const char = cleaned[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (char === '\\') {
+        escape = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (!inString) {
+        if (char === startChar) {
+          depth++;
+        } else if (char === endChar) {
+          depth--;
+          if (depth === 0) {
+            foundEnd = i;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (foundEnd !== -1) {
+      extracted = cleaned.substring(startIdx, foundEnd + 1);
+    } else {
+      extracted = cleaned.substring(startIdx);
+    }
+  }
+
+  // Handle some common malformed patterns like "key":. This disruption...
+  // Replace direct invalid values after the colons e.g. :. Text
+  let repaired = extracted.replace(/:\s*\.\s+([A-Za-z])/g, ': "$1');
+  
+  try {
+    return JSON.parse(repaired);
+  } catch (error) {
+    // Attempt standard syntax repair if possible
+    try {
+      const furtherCleaned = repaired.replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(furtherCleaned);
+    } catch {
+      try {
+        // Strip trailing comments/garbage outside of closing brackets/curly braces
+        const lastBrack = Math.max(repaired.lastIndexOf('}'), repaired.lastIndexOf(']'));
+        if (lastBrack !== -1) {
+          return JSON.parse(repaired.substring(0, lastBrack + 1));
+        }
+      } catch {}
+      throw error;
+    }
+  }
+};
+
 const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
-  const models = ["gemini-flash-latest", "gemini-3-flash-preview", "gemini-1.5-flash", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
+  const models = [
+    "gemini-3.5-flash",
+    "gemini-2.0-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest"
+  ];
   let modelIndex = 0;
   const failedModels = new Set<string>();
 
@@ -141,7 +250,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     } as any));
 
     const jsonText = response.text || "{}";
-    const data = JSON.parse(jsonText);
+    const data = safeParseJson(jsonText);
     
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
       title: chunk.web?.title || "Search Result",
@@ -212,11 +321,11 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
   
   STRICT GROUNDING:
   1. Every "High" or "Medium" disruption MUST be linked to a verifiable news or weather event from the last 48 hours.
-  2. Grounding: If no disruption, report "Operational Stability: [Region]" and mark severity as "Low". CRITICAL: Do NOT mark stability as Medium or High.
+  2. Grounding: If no disruptions are found, you MUST return a disruption item inside the "disruptions" array with "title" set to "Operational Stability: [Region]", "severity" set to "Low", type as "Logistics", summary confirming normal conditions, and verificationStatus as "verified". DO NOT output text or sentences directly under the "disruptions" key; "disruptions" MUST ALWAYS be a valid JSON array of objects conforming to the responseSchema under all circumstances.
   3. Impact Linkage: Explain exactly HOW the event affects supply chain (e.g., "Closure of Port X disrupts delivery for Supplier Y").
   4. Node Accuracy: Explicitly name impacted suppliers from the list if they are in the blast radius.
   
-  Output JSON format.`;
+  Output ONLY valid raw JSON conforming exactly to the responseSchema. No conversational text or markdown formatting should surround the JSON.`;
 
   try {
     const response = await withRetry((modelName) => ai.models.generateContent({
@@ -254,11 +363,16 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
     } as any));
 
     const jsonText = response.text || "{\"disruptions\": []}";
-    const data = JSON.parse(jsonText);
+    const data = safeParseJson(jsonText);
+    
+    if (!data || typeof data !== 'object' || !Array.isArray(data.disruptions)) {
+      console.warn("Global Risk Signals parsed JSON is not in the expected format:", data);
+      throw new Error("Invalid schema structure for Global Risk Signals");
+    }
     
     const result = data.disruptions.map((d: any) => ({
       ...d,
-      impactedSuppliers: d.impactedSuppliers.map((name: string) => {
+      impactedSuppliers: (d.impactedSuppliers || []).map((name: string) => {
         const found = suppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
         return found ? found.id : name;
       })
@@ -322,7 +436,7 @@ export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: bo
       },
     } as any));
 
-    const data = JSON.parse(result.text || "{}");
+    const data = safeParseJson(result.text || "{}");
     impactCache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   } catch (error) {
