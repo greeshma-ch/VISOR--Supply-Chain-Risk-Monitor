@@ -12,13 +12,14 @@ export interface NewsItem {
 
 export const fetchRealTimeNews = async (category: string): Promise<NewsItem[]> => {
   try {
+    const todayISO = new Date().toISOString().split('T')[0];
     const query = category === 'ALL' 
       ? "latest global supply chain and logistics news" 
       : `latest supply chain and logistics news for ${category} region`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Fetch the 5 most recent and relevant news articles about ${query}. 
+      model: "gemini-2.0-flash",
+      contents: `Today is ${todayISO}. Fetch the 5 most recent news articles published on ${todayISO} or within the last 24 hours about ${query}. Only include articles from the last 24 hours.
       Return the data as a JSON array of objects with the following properties:
       - title: The headline of the news article.
       - summary: A concise 1-2 sentence summary.

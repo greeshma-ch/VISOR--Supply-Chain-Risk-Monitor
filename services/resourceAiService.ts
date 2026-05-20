@@ -1,9 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { parseGeminiResponse } from "./geminiService";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
-const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
-  const models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-flash-latest", "gemini-3.1-flash-lite-preview"];
+const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+  const models = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
   let modelIndex = 0;
   const failedModels = new Set<string>();
 
@@ -33,7 +34,7 @@ const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, 
         }
 
         const jitter = Math.random() * 1500;
-        const nextDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
+        const nextDelay = Math.min((isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter, 6000);
         
         console.warn(`Gemini Resource Service Error on ${currentModel}. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms...`);
         await new Promise(resolve => setTimeout(resolve, nextDelay));
@@ -96,7 +97,7 @@ export const generateResourceBriefing = async (title: string, location: string, 
       }
     }));
 
-    return JSON.parse(response.text || '{}');
+    return parseGeminiResponse(response.text || '{}');
   } catch (error) {
     console.error("Error generating briefing:", error);
     return {
@@ -152,7 +153,7 @@ export const generateResourceDocument = async (title: string, location: string, 
       }
     }));
 
-    return JSON.parse(response.text || '{}');
+    return parseGeminiResponse(response.text || '{}');
   } catch (error) {
     console.error("Error generating document:", error);
     return {

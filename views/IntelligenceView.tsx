@@ -30,7 +30,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 import { toast } from 'sonner';
-import { isGeoMatch } from '../lib/riskEngine';
 
 interface IntelligenceViewProps {
   user: User;
@@ -67,7 +66,14 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({
   const resolvedStatus = supplier.status;
   
   const relevantDisruptions = React.useMemo(() => 
-    disruptions.filter(d => isGeoMatch(supplier.location, d.location)),
+    disruptions.filter(d => {
+      if (!d.location) return false;
+      const sLoc = supplier.location.toLowerCase();
+      const dLoc = d.location.toLowerCase();
+      const supplierParts = sLoc.split(',').map(p => p.trim());
+      const disruptionParts = dLoc.split(',').map(p => p.trim());
+      return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+    }),
     [supplier.location, disruptions]
   );
 

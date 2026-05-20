@@ -50,17 +50,10 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('vs_session');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') {
-          if (!parsed.sectors) parsed.sectors = ['Pharmaceuticals', 'Logistics', 'Semiconductors', 'Electronics', 'Automotive'];
-          // Ensure all features are available
-          return parsed;
-        }
-      } catch (e) {
-        console.error("Corrupted vs_session found in localStorage. Clearing...", e);
-        localStorage.removeItem('vs_session');
-      }
+      const parsed = JSON.parse(saved);
+      if (!parsed.sectors) parsed.sectors = ['Pharmaceuticals', 'Logistics', 'Semiconductors', 'Electronics', 'Automotive'];
+      // Ensure all features are available
+      return parsed;
     }
     return null;
   });

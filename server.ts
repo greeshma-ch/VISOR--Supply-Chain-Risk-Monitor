@@ -16,11 +16,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Server-side cache to guarantee low latency and prevent OpenWeather quota exhaustion
-  const weatherAlertsCache = new Map<string, { data: any; timestamp: number }>();
-  const currentWeatherCache = new Map<string, { data: any; timestamp: number }>();
-  const WEATHER_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache duration
-
   // API Route for health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -42,14 +37,6 @@ async function startServer() {
       return res.status(400).json({ error: "Invalid locations data" });
     }
 
-    // Server-side caching check for multi-location alerts payload
-    const cacheKey = JSON.stringify(locations.map((l: any) => `${l.lat.toFixed(4)},${l.lon.toFixed(4)}`).sort());
-    const cached = weatherAlertsCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp < WEATHER_CACHE_TTL)) {
-      console.log("Serving weather alerts from server cache (Hit)");
-      return res.json(cached.data);
-    }
-
     try {
       console.log(`Fetching weather alerts for ${locations.length} locations`);
       const alerts = await Promise.all(
@@ -57,9 +44,7 @@ async function startServer() {
           try {
             const url = `https://api.openweathermap.org/data/2.5/weather?lat=${loc.lat}&lon=${loc.lon}&appid=${apiKey}&units=metric`;
             console.log(`Calling OpenWeather for ${loc.name}: ${url.replace(apiKey, 'REDACTED')}`);
-            
-            // Set 4s timeout on the fetch call to prevent hanging requests from failing the entire reload
-            const response = await fetch(url, { timeout: 4000 } as any);
+            const response = await fetch(url);
             
             if (!response.ok) {
               console.error(`OpenWeather API returned ${response.status} for ${loc.name}`);
@@ -97,10 +82,7 @@ async function startServer() {
         })
       );
 
-      const filteredAlerts = alerts.filter((a) => a !== null);
-      // Store in server cache
-      weatherAlertsCache.set(cacheKey, { data: filteredAlerts, timestamp: Date.now() });
-      res.json(filteredAlerts);
+      res.json(alerts.filter((a) => a !== null));
     } catch (error) {
       console.error("Weather API error:", error);
       res.status(500).json({ error: "Failed to fetch weather data" });
@@ -120,17 +102,9 @@ async function startServer() {
       return res.status(400).json({ error: "Latitude and longitude are required" });
     }
 
-    const cacheKey = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
-    const cached = currentWeatherCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp < WEATHER_CACHE_TTL)) {
-      console.log(`Serving current weather for ${cacheKey} from server cache (Hit)`);
-      return res.json(cached.data);
-    }
-
     try {
       const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`,
-        { timeout: 4000 } as any
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
       );
 
       if (!response.ok) {
@@ -138,7 +112,6 @@ async function startServer() {
       }
 
       const data = await response.json();
-      currentWeatherCache.set(cacheKey, { data, timestamp: Date.now() });
       res.json(data);
     } catch (error) {
       console.error("Current weather API error:", error);

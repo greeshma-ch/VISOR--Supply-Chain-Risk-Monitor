@@ -2,7 +2,7 @@
 import React from 'react';
 import { User, Disruption, Supplier } from '../types';
 import { Bell, Cloud, Ship, Zap, Info, Clock, ExternalLink, Archive, Sun, CloudRain, CloudLightning, CloudSnow, Wind, Lock } from 'lucide-react';
-import { resolveSupplierStatus, isGeoMatch } from '../lib/riskEngine';
+import { resolveSupplierStatus } from '../lib/riskEngine';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import Skeleton from '../components/Skeleton';
@@ -267,7 +267,10 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
                       const geographicallyImpacted = suppliers
                         .filter(s => {
                           if (directlyImpacted.includes(s.id) || directlyImpacted.includes(s.name)) return false;
-                          return isGeoMatch(s.location, alert.location);
+                          if (!alert.location) return false;
+                          const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
+                          const alertParts = alert.location.toLowerCase().split(',').map(p => p.trim());
+                          return supplierParts.some(rp => alertParts.some(dp => dp.includes(rp) || rp.includes(dp)));
                         })
                         .map(s => s.id);
                       

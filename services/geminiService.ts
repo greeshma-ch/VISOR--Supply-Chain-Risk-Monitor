@@ -2,14 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { IntelligenceBrief, Supplier, ImpactAnalysis, Disruption, RiskStatus, User } from "../types";
 
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build'
-    }
-  }
-});
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 // In-memory cache to reduce API calls and mitigate quota hits
 const intelCache = new Map<string, { data: IntelligenceBrief; timestamp: number }>();
@@ -19,110 +12,53 @@ const impactCache = new Map<string, { data: ImpactAnalysis; timestamp: number }>
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
 
-const safeParseJson = (text: string | undefined): any => {
-  if (!text) return null;
-  let cleaned = text.trim();
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/, "").trim();
+/**
+ * Robust JSON extraction and parsing helper to handle inline citations,
+ * markdown formatting blocks, and conversational noise from Gemini responses.
+ */
+export const parseGeminiResponse = (text: string): any => {
+  if (!text) return {};
+  
+  // Clean markdown blocks if present
+  let cleaned = text.replace(/```json|```/g, '').trim();
+  
+  // Find first '{' or '[' and last '}' or ']'
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
   }
+  
+  // Remove potential inline citations inside JSON that break parsing
+  // e.g., "some text" [1] or "some text" [i] or "some text" [1],
+  cleaned = cleaned.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"\s*\[\d+\]/g, '"$1"');
+  
+  // Remove footnotes from keys or outside of quoted values
+  cleaned = cleaned.replace(/:\s*\[\d+\]/g, ':');
+  cleaned = cleaned.replace(/,\s*\[\d+\]/g, ',');
+  cleaned = cleaned.replace(/\]\s*\[\d+\]/g, ']');
+  cleaned = cleaned.replace(/\}\s*\[\d+\]/g, '}');
+  
+  // Clean numbers with citations like: 15 [1]
+  cleaned = cleaned.replace(/:\s*(\d+)\s*\[\d+\]/g, ': $1');
 
-  // 1. Try parsing directly in case it's completely valid JSON
   try {
     return JSON.parse(cleaned);
-  } catch (err) {
-    // Proceed to extraction/repair fallbacks
-  }
-  
-  // 2. Robust balanced JSON structure extractor
-  let firstBrace = cleaned.indexOf('{');
-  let firstBracket = cleaned.indexOf('[');
-  
-  let startIdx = -1;
-  let endChar = '';
-  let startChar = '';
-  
-  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-    startIdx = firstBrace;
-    startChar = '{';
-    endChar = '}';
-  } else if (firstBracket !== -1) {
-    startIdx = firstBracket;
-    startChar = '[';
-    endChar = ']';
-  }
-  
-  let extracted = cleaned;
-  if (startIdx !== -1) {
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    let foundEnd = -1;
-    
-    for (let i = startIdx; i < cleaned.length; i++) {
-      const char = cleaned[i];
-      if (escape) {
-        escape = false;
-        continue;
-      }
-      if (char === '\\') {
-        escape = true;
-        continue;
-      }
-      if (char === '"') {
-        inString = !inString;
-        continue;
-      }
-      if (!inString) {
-        if (char === startChar) {
-          depth++;
-        } else if (char === endChar) {
-          depth--;
-          if (depth === 0) {
-            foundEnd = i;
-            break;
-          }
-        }
-      }
-    }
-    
-    if (foundEnd !== -1) {
-      extracted = cleaned.substring(startIdx, foundEnd + 1);
-    } else {
-      extracted = cleaned.substring(startIdx);
-    }
-  }
-
-  // Handle some common malformed patterns like "key":. This disruption...
-  // Replace direct invalid values after the colons e.g. :. Text
-  let repaired = extracted.replace(/:\s*\.\s+([A-Za-z])/g, ': "$1');
-  
-  try {
-    return JSON.parse(repaired);
-  } catch (error) {
-    // Attempt standard syntax repair if possible
+  } catch (e) {
+    // Last-ditch sanitization: stripping any remaining [digits] entirely
     try {
-      const furtherCleaned = repaired.replace(/,\s*([}\]])/g, '$1');
-      return JSON.parse(furtherCleaned);
-    } catch {
-      try {
-        // Strip trailing comments/garbage outside of closing brackets/curly braces
-        const lastBrack = Math.max(repaired.lastIndexOf('}'), repaired.lastIndexOf(']'));
-        if (lastBrack !== -1) {
-          return JSON.parse(repaired.substring(0, lastBrack + 1));
-        }
-      } catch {}
-      throw error;
+      const strictClean = cleaned.replace(/\[\d+\]/g, '');
+      return JSON.parse(strictClean);
+    } catch (innerError) {
+      console.warn("Robust parser failed to parse cleaned text. Raw response was:", text);
+      throw e;
     }
   }
 };
 
-const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
-  const models = [
-    "gemini-3.5-flash",
-    "gemini-2.0-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-flash-latest"
-  ];
+const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
+  const models = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
   let modelIndex = 0;
   const failedModels = new Set<string>();
 
@@ -158,7 +94,7 @@ const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, 
         }
 
         const jitter = Math.random() * 1500;
-        const nextDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
+        const nextDelay = Math.min((isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter, 6000);
         
         console.warn(`Gemini Service ${errorType} on ${currentModel}. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms... (${remainingRetries} retries left)`);
         await new Promise(resolve => setTimeout(resolve, nextDelay));
@@ -179,7 +115,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     return cached.data;
   }
 
-  const currentDate = new Date().toLocaleDateString();
+  const todayISO = new Date().toISOString().split('T')[0];
   const weatherContext = weatherData 
     ? `Current weather at ${supplier.location}: ${weatherData.weather[0].description}, ${weatherData.main.temp}°C.`
     : "Search for current weather.";
@@ -192,7 +128,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     ? `REAL-TIME DISRUPTIONS: ${relevantDisruptions.map(d => `${d.title} (${d.severity})`).join(', ')}`
     : "No major disruptions detected in official feeds.";
 
-  const prompt = `Role: Strategic Logistics Analyst. Today is ${currentDate}.
+  const prompt = `Role: Strategic Logistics Analyst. Today is ${todayISO}.
   Location: ${supplier.location}, Category: ${supplier.category}, Resolved Risk Status: ${supplier.status}.
   
   ${simulationContext}
@@ -200,7 +136,8 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
   ${disruptionContext}
 
   Task: Provide a high-fidelity intelligence brief and impact assessment that justifies the Resolved Risk Status of ${supplier.status}.
-  Ground your reasoning in the real-time weather and feed analysis above. 
+  Ground your reasoning in the real-time weather and feed analysis above.
+  GROUNDING WINDOW: For todayFeed items, search ONLY events from ${todayISO}. For recentFeed, use the last 7 days.
   If the status is CAUTION or RISKY, identify exactly which signal (weather or feed) triggered the escalation.
   If STABLE, confirm baseline operational integrity despite local conditions.`;
 
@@ -232,7 +169,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
             recentFeed: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, status: { type: Type.STRING }, insight: { type: Type.STRING } } } },
             historicalContext: { type: Type.STRING },
             mitigationSteps: { type: Type.ARRAY, items: { type: Type.STRING } },
-            confidenceScore: { type: Type.NUMBER },
+            confidenceScore: { type: Type.NUMBER, description: "Integer 0-100 derived strictly from search grounding evidence for this region on this date. 90-100: multiple verified live sources directly confirm the status. 70-89: one strong verified source. 50-69: indirect or partial evidence only. Below 50: no direct evidence found, status inferred from historical or regional patterns." },
             alternativeSuppliers: { type: Type.ARRAY, items: { type: Type.STRING } },
             impact: {
               type: Type.OBJECT,
@@ -250,32 +187,12 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     } as any));
 
     const jsonText = response.text || "{}";
-    const data = safeParseJson(jsonText);
+    const data = parseGeminiResponse(jsonText);
     
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
       title: chunk.web?.title || "Search Result",
       uri: chunk.web?.uri || "#"
     })) || [];
-
-    // Calibrate confidence score using collected evidence strength
-    let baseConfidence = Number(data.confidenceScore) || 85;
-    if (baseConfidence <= 10) {
-      baseConfidence *= 10; // Convert 1-10 scale to 0-100 percentage if returned as single digit
-    }
-
-    const hasWeather = !!(weatherData?.weather?.length);
-    const disruptionsCount = relevantDisruptions.length;
-    const sourcesCount = sources.length;
-
-    // Apply incremental weights of collected evidence types
-    let evidenceBonus = 0;
-    if (hasWeather) evidenceBonus += 5;
-    if (disruptionsCount > 0) evidenceBonus += Math.min(disruptionsCount * 4, 12);
-    if (sourcesCount > 0) evidenceBonus += Math.min(sourcesCount * 3, 10);
-    if (isSimulated) evidenceBonus += 8;
-
-    // Clamp confidence score between 65% (analyzed base) and 99% (preventing unjustified 100%)
-    const calibratedConfidence = Math.max(65, Math.min(99, baseConfidence + evidenceBonus));
 
     const result: IntelligenceBrief = {
       supplierId: supplier.id,
@@ -288,7 +205,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
       historicalContext: data.historicalContext,
       recommendations: data.mitigationSteps,
       mitigationSteps: data.mitigationSteps,
-      confidenceScore: calibratedConfidence,
+      confidenceScore: data.confidenceScore,
       alternativeSuppliers: data.alternativeSuppliers,
       lastUpdated: new Date().toISOString(),
       sources: sources,
@@ -310,7 +227,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
       historicalContext: "Regionally stable.",
       recommendations: ["Maintain standard protocols"],
       mitigationSteps: ["Maintain standard protocols"],
-      confidenceScore: 75, // Pragmatic offline fallback confidence
+      confidenceScore: 5,
       alternativeSuppliers: [],
       lastUpdated: new Date().toISOString(),
       sources: [],
@@ -329,23 +246,23 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
     return cached.data;
   }
 
-  const currentDate = new Date().toLocaleDateString();
+  const todayISO = new Date().toISOString().split('T')[0];
   const nodeRegionsList = Array.from(new Set(suppliers.map(s => s.location))).join(", ");
   const supplierList = suppliers.slice(0, 15).map(s => `${s.name} (${s.location})`).join("; "); 
   
-  const prompt = `Role: Real-time Risk Analyst. Today: ${currentDate}.
+  const prompt = `Role: Real-time Risk Analyst. Today: ${todayISO}.
   HQ: ${hqLocation}. Nodes in: ${nodeRegions}.
   Suppliers: ${supplierList}.
 
-  Search global events from last 48 hours impacting these regions. 
+  Search for real news and weather events from the last 48 hours (on or after ${todayISO}) impacting these regions. 
   
   STRICT GROUNDING:
   1. Every "High" or "Medium" disruption MUST be linked to a verifiable news or weather event from the last 48 hours.
-  2. Grounding: If no disruptions are found, you MUST return a disruption item inside the "disruptions" array with "title" set to "Operational Stability: [Region]", "severity" set to "Low", type as "Logistics", summary confirming normal conditions, and verificationStatus as "verified". DO NOT output text or sentences directly under the "disruptions" key; "disruptions" MUST ALWAYS be a valid JSON array of objects conforming to the responseSchema under all circumstances.
+  2. Grounding: If no disruption, report "Operational Stability: [Region]" and mark severity as "Low". CRITICAL: Do NOT mark stability as Medium or High.
   3. Impact Linkage: Explain exactly HOW the event affects supply chain (e.g., "Closure of Port X disrupts delivery for Supplier Y").
   4. Node Accuracy: Explicitly name impacted suppliers from the list if they are in the blast radius.
   
-  Output ONLY valid raw JSON conforming exactly to the responseSchema. No conversational text or markdown formatting should surround the JSON.`;
+  Output JSON format.`;
 
   try {
     const response = await withRetry((modelName) => ai.models.generateContent({
@@ -383,25 +300,29 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
     } as any));
 
     const jsonText = response.text || "{\"disruptions\": []}";
-    const data = safeParseJson(jsonText);
+    const data = parseGeminiResponse(jsonText);
     
-    if (!data || typeof data !== 'object' || !Array.isArray(data.disruptions)) {
-      console.warn("Global Risk Signals parsed JSON is not in the expected format:", data);
-      throw new Error("Invalid schema structure for Global Risk Signals");
-    }
-    
-    const result = data.disruptions.map((d: any) => ({
+    // Ensure data.disruptions exists and is an array (robust validation)
+    const rawDisruptions = Array.isArray(data?.disruptions) ? data.disruptions : [];
+
+    // Exclude Low-severity stability entries — they are informational only and must
+    // not enter the disruptions array where riskEngine would match them to suppliers
+    const actionable = rawDisruptions.filter((d: any) => d.severity !== 'Low');
+
+    const result = actionable.map((d: any) => ({
       ...d,
-      impactedSuppliers: (d.impactedSuppliers || []).map((name: string) => {
-        const found = suppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
-        return found ? found.id : name;
-      })
+      impactedSuppliers: Array.isArray(d.impactedSuppliers) 
+        ? d.impactedSuppliers.map((name: string) => {
+            const found = suppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
+            return found ? found.id : name;
+          })
+        : []
     }));
 
     globalRiskCache.set(cacheKey, { data: result, timestamp: Date.now() });
     return result;
-  } catch (error) {
-    console.error("Global Risk Signals Error:", error);
+  } catch (error: any) {
+    console.warn("Global Risk Signals: Failed to parse or gather real-time intelligence, returning cached or fallback data. Reason:", error?.message || error);
     // Graceful fallback to cache if available even if stale
     if (cached) {
       console.warn("Serving stale global risk signals from cache due to API error.");
@@ -456,11 +377,11 @@ export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: bo
       },
     } as any));
 
-    const data = safeParseJson(result.text || "{}");
+    const data = parseGeminiResponse(result.text || "{}");
     impactCache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
-  } catch (error) {
-    console.error("Impact Analysis Error:", error);
+  } catch (error: any) {
+    console.warn("Impact Analysis: Parse or retrieval encountered an error, applying fallback:", error?.message || error);
     if (cached) {
       console.warn("Serving stale impact analysis from cache due to API error.");
       return cached.data;
